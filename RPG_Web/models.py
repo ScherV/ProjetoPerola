@@ -1,6 +1,6 @@
 from database import db
 
-# --- TABELA AUXILIAR (Muitos-para-Muitos: Classes <-> Magias) ---
+# --- TABELA AUXILIAR (Classes <-> Magias) ---
 classe_magias = db.Table('classe_magias',
     db.Column('classe_id', db.Integer, db.ForeignKey('classe.id'), primary_key=True),
     db.Column('magia_id', db.Integer, db.ForeignKey('magia.id'), primary_key=True)
@@ -13,24 +13,16 @@ class User(db.Model):
     password = db.Column(db.String(120), nullable=False)
     is_master = db.Column(db.Boolean, default=False)
     is_admin = db.Column(db.Boolean, default=False)
-    
     personagens = db.relationship('Personagem', backref='dono', lazy=True, cascade="all, delete-orphan")
 
     def to_dict(self):
-        return {
-            "id": self.id,
-            "username": self.username,
-            "is_master": self.is_master,
-            "is_admin": self.is_admin
-        }
+        return {"id": self.id, "username": self.username, "is_master": self.is_master, "is_admin": self.is_admin}
 
 # --- 2. TABELA DE CLASSES ---
 class Classe(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(80), unique=True, nullable=False)
     descricao = db.Column(db.String(250))
-    
-    # Relacionamento: Magias que a classe ganha ao nascer
     magias_iniciais = db.relationship('Magia', secondary=classe_magias, backref='classes_que_tem')
 
     def to_dict(self):
@@ -43,31 +35,30 @@ class Personagem(db.Model):
     historia = db.Column(db.Text)
     is_dead = db.Column(db.Boolean, default=False)
     
-    # Chaves Estrangeiras
-    classe_id = db.Column(db.Integer, db.ForeignKey('classe.id'), nullable=False)
+    # Banco de Dados de Críticos e Falhas
+    banco_criticos = db.Column(db.Integer, default=0)
+    banco_falhas = db.Column(db.Integer, default=0)
+
+    classe_id = db.Column(db.Integer, db.ForeignKey('classe.id'), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
-    # RELACIONAMENTOS
-    # 1. Link com a Classe (Correção do erro)
     classe_info = db.relationship('Classe', backref='personagens_desta_classe')
-    
-    # 2. Link com o Grimório (Magias Aprendidas)
     grimorio = db.relationship('MagiaAprendida', backref='dono_magia', lazy=True, cascade="all, delete-orphan")
     
-    # 3. Link com Atributos (Pontos)
-    pontos = db.relationship('PontosAtributo', backref='dono_pontos', lazy=True, cascade="all, delete-orphan")
+    # Relacionamentos com a ficha técnica
+    atributos = db.relationship('FichaAtributo', backref='personagem', lazy=True, cascade="all, delete-orphan")
+    talentos = db.relationship('FichaTalento', backref='personagem', lazy=True, cascade="all, delete-orphan")
 
     def to_dict(self):
         return {
             "id": self.id,
             "nome": self.nome,
-            # AQUI ESTÁ A CORREÇÃO: Usamos self.classe_info
             "classe": self.classe_info.nome if self.classe_info else "Classe Desconhecida",
             "dono": self.dono.username if self.dono else "Desconhecido",
             "is_dead": self.is_dead,
             "historia": self.historia,
-            # Retorna os atributos também
-            "atributos": [p.to_dict() for p in self.pontos]
+            "banco_criticos": self.banco_criticos,
+            "banco_falhas": self.banco_falhas
         }
 
 # --- 4. TABELAS DE MAGIA ---
@@ -83,7 +74,6 @@ class Magia(db.Model):
 class MagiaAprendida(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nivel = db.Column(db.Integer, default=1)
-
     ativa = db.Column(db.Boolean, default=True)
     
     personagem_id = db.Column(db.Integer, db.ForeignKey('personagem.id'), nullable=False)
@@ -101,25 +91,51 @@ class MagiaAprendida(db.Model):
             "ativa": self.ativa
         }
 
-# --- 5. TABELAS DE ATRIBUTOS ---
-class Atributo(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(50), unique=True, nullable=False)
-    
-    def to_dict(self):
-        return {"id": self.id, "nome": self.nome}
+# --- 5. DEFINIÇÕES DO SISTEMA (Regras Novas) ---
 
-class PontosAtributo(db.Model):
+class AtributoDef(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(50), unique=True)
+    sigla = db.Column(db.String(3))
+
+class TalentoDef(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(50), unique=True)
+    atributo_pai_id = db.Column(db.Integer, db.ForeignKey('atributo_def.id'))
+    atributo_pai = db.relationship('AtributoDef')
+
+# --- 6. A FICHA TÉCNICA DO PERSONAGEM (Valores Reais) ---
+
+class FichaAtributo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     valor = db.Column(db.Integer, default=0)
+    rank = db.Column(db.String(1), default="F")
     
-    personagem_id = db.Column(db.Integer, db.ForeignKey('personagem.id'), nullable=False)
-    atributo_id = db.Column(db.Integer, db.ForeignKey('atributo.id'), nullable=False)
+    personagem_id = db.Column(db.Integer, db.ForeignKey('personagem.id'))
+    atributo_def_id = db.Column(db.Integer, db.ForeignKey('atributo_def.id'))
     
-    atributo_info = db.relationship('Atributo')
+    info = db.relationship('AtributoDef')
 
-    def to_dict(self):
-        return {
-            "nome_atributo": self.atributo_info.nome,
-            "valor": self.valor
-        }
+class FichaTalento(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    valor = db.Column(db.Integer, default=0)
+    rank = db.Column(db.String(1), default="F")
+    
+    personagem_id = db.Column(db.Integer, db.ForeignKey('personagem.id'))
+    talento_def_id = db.Column(db.Integer, db.ForeignKey('talento_def.id'))
+    
+    info = db.relationship('TalentoDef')
+
+# --- 7. TABELAS DE CÁLCULO (Tabelinhas da Imagem) ---
+
+class RegraBonusRank(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    rank = db.Column(db.String(1))
+    bonus_atributo = db.Column(db.Integer)
+    bonus_talento = db.Column(db.Integer)
+
+class RegraDado(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    numero_dado = db.Column(db.Integer)
+    modificador = db.Column(db.Integer)
+    eh_falha = db.Column(db.Boolean, default=False)

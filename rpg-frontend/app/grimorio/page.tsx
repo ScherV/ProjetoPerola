@@ -94,11 +94,22 @@ export default function GrimorioPage() {
             magias.map((magia) => (
               <div key={magia.id_vinculo} className="bg-slate-900 p-5 rounded-xl border border-slate-800 shadow-lg hover:border-purple-500/50 transition-all">
                 
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-xl font-bold text-white">{magia.nome}</h3>
-                  <span className="bg-purple-900 text-purple-200 text-xs px-2 py-1 rounded border border-purple-700">
-                    Nível {magia.nivel}
-                  </span>
+                {/* PARTE SUPERIOR DO CARD (Nome e Nível) */}
+                <div className="flex justify-between items-start gap-3 mb-3">
+                    
+                    {/* NOME DA MAGIA */}
+                    {/* leading-tight: Ajusta a altura da linha se o nome for longo */}
+                    <h3 className="text-xl font-bold text-white leading-tight">
+                        {magia.nome}
+                    </h3>
+
+                    {/* BADGE DO NÍVEL */}
+                    {/* shrink-0: Impede que o balão seja esmagado pelo nome longo */}
+                    {/* whitespace-nowrap: Garante que "Nível 1" fique sempre na mesma linha */}
+                    <span className="shrink-0 whitespace-nowrap bg-purple-900 text-purple-200 text-xs px-2 py-1 rounded border border-purple-700 font-bold">
+                        Nível {magia.nivel}
+                    </span>
+                
                 </div>
                 
                 <p className="text-slate-400 text-sm mb-4 min-h-[40px]">{magia.descricao}</p>
