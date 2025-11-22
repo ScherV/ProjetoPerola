@@ -83,17 +83,28 @@ export default function Home() {
             
             <div className="grid grid-cols-1 gap-4">
               {isMaster ? (
-                // BOTÕES DO MESTRE
+                // --- BOTÕES DO MESTRE ---
                 <>
-                  <button className="p-4 bg-slate-800 hover:bg-slate-700 rounded-lg text-left border-l-4 border-red-500 transition-all">
+                  <button 
+                    onClick={() => alert("Em breve: Criador de NPCs!")}
+                    className="p-4 bg-slate-800 hover:bg-slate-700 rounded-lg text-left border-l-4 border-red-500 transition-all"
+                  >
                     <h3 className="font-bold">Gerenciar NPCs</h3>
                     <p className="text-sm text-slate-400">Criar ou editar fichas de inimigos</p>
                   </button>
-                  <button className="p-4 bg-slate-800 hover:bg-slate-700 rounded-lg text-left border-l-4 border-yellow-500 transition-all">
+
+                  <button 
+                    onClick={() => alert("Em breve: Mapa Mundi Interativo!")}
+                    className="p-4 bg-slate-800 hover:bg-slate-700 rounded-lg text-left border-l-4 border-yellow-500 transition-all"
+                  >
                     <h3 className="font-bold">Mapa Mundi</h3>
                     <p className="text-sm text-slate-400">Visualizar e editar o mapa global</p>
                   </button>
-                  <button className="p-4 bg-slate-800 hover:bg-slate-700 rounded-lg text-left border-l-4 border-purple-500 transition-all">
+
+                  <button 
+                    onClick={() => router.push("/mestre")} // <--- LEVA PARA O PAINEL
+                    className="p-4 bg-slate-800 hover:bg-slate-700 rounded-lg text-left border-l-4 border-purple-500 transition-all"
+                  >
                     <h3 className="font-bold">Todas as Fichas</h3>
                     <p className="text-sm text-slate-400">Ver fichas de todos os jogadores</p>
                   </button>
@@ -110,7 +121,7 @@ export default function Home() {
                   </button>
 
                   <button 
-                    onClick={() => alert("Em breve: Grimório de Magias!")} 
+                    onClick={() => router.push("/grimorio")} // <--- ADICIONADO AQUI! 
                     className="p-4 bg-slate-800 hover:bg-slate-700 rounded-lg text-left border-l-4 border-green-500 transition-all"
                   >
                     <h3 className="font-bold">Meu Grimório</h3>

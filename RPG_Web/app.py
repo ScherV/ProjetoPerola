@@ -130,33 +130,63 @@ def criar_personagem():
     user_id = dados.get('user_id')
     nome = dados.get('nome')
     historia = dados.get('historia')
-    # Por enquanto, vamos forçar todos a serem "Aventureiro" (ID 1)
-    # No futuro, o frontend vai mandar o 'classe_id' escolhido
-    classe_id = 1 
+    
+    # Agora tentamos pegar a classe escolhida pelo player. 
+    # Se não vier nada, usamos 1 (Aventureiro/Ceifeiro) como padrão de segurança.
+    classe_id = dados.get('classe_id', 1)
+
+    if not nome or not user_id:
+        return jsonify({"erro": "Preencha Nome e escolha uma Classe!"}), 400
 
     # 1. Validação Básica
     if not nome or not user_id:
         return jsonify({"erro": "Nome e User ID são obrigatórios"}), 400
 
-    # 2. Regra de Negócio: Verificar se já tem char vivo (Segurança Dupla)
+    # 2. Regra de Negócio: Verificar se já tem char vivo
     if Personagem.query.filter_by(user_id=user_id, is_dead=False).first():
-        return jsonify({"erro": "Você já possui um personagem vivo!"}), 403
+        return jsonify({"erro": "Você já possui um personagem vivo! Peça ao mestre para matá-lo."}), 403
 
-    # 3. Criação
+    # 3. Instância do Novo Personagem
     novo_char = Personagem(
         nome=nome,
         historia=historia,
         user_id=user_id,
-        classe_id=classe_id, # Usando o ID da classe que acabamos de criar
+        classe_id=classe_id,
         is_dead=False
     )
 
+    # --- LÓGICA DO KIT INICIAL (A Mágica Acontece Aqui) ---
+    # Buscamos a classe no banco para ver quais magias ela dá de presente
+    classe_do_char = Classe.query.get(classe_id)
+    
+    if classe_do_char:
+        # Para cada magia que a classe tem na lista de 'magias_iniciais'...
+        for magia_padrao in classe_do_char.magias_iniciais:
+            # ... criamos um registro de aprendizado Nível 1 para o novo personagem
+            aprendizado = MagiaAprendida(
+                dono_magia=novo_char, # Vincula ao personagem que está nascendo
+                info_magia=magia_padrao, # Vincula à magia (ex: Bola de Fogo)
+                nivel=1
+            )
+            # Adicionamos esse aprendizado na "sacola" para salvar
+            db.session.add(aprendizado)
+
+    # 4. Salvar Tudo no Banco
     try:
         db.session.add(novo_char)
         db.session.commit()
-        return jsonify({"mensagem": "Personagem criado!", "id": novo_char.id}), 201
+        return jsonify({
+            "mensagem": f"Personagem '{nome}' criado com a classe '{classe_do_char.nome}'!", 
+            "id": novo_char.id
+        }), 201
     except Exception as e:
+        db.session.rollback() # Cancela se der erro
         return jsonify({"erro": f"Erro ao salvar: {str(e)}"}), 500
+    
+@app.route('/classes', methods=['GET'])
+def listar_classes():
+    todas_classes = Classe.query.all()
+    return jsonify([c.to_dict() for c in todas_classes]), 200
     
 # --- ROTAS DO SISTEMA DE MAGIA ---
 
@@ -257,6 +287,24 @@ def upar_magia_com_media(id_personagem, nome_magia):
         "nova_media": f"{(soma_niveis + 1) / total_magias:.1f}"
     }), 200
     
+# --- ÁREA DO MESTRE ---
+
+@app.route('/mestre/personagens', methods=['GET'])
+def listar_todos_personagens():
+    # Na vida real, validaríamos se o usuário chamando é Mestre aqui.
+    
+    # Busca todos os personagens
+    personagens = Personagem.query.all()
+    
+    lista_final = []
+    for p in personagens:
+        p_dict = p.to_dict()
+        # Adicionamos o ID para o mestre poder clicar e editar depois
+        p_dict['id'] = p.id 
+        lista_final.append(p_dict)
+        
+    return jsonify(lista_final), 200
+
 # --- ÁREA ADMINISTRATIVA ---
 
 @app.route('/users', methods=['GET'])
