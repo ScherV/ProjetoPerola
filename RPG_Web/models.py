@@ -49,6 +49,11 @@ class Personagem(db.Model):
     atributos = db.relationship('FichaAtributo', backref='personagem', lazy=True, cascade="all, delete-orphan")
     talentos = db.relationship('FichaTalento', backref='personagem', lazy=True, cascade="all, delete-orphan")
 
+    pontos_atributos_livres = db.Column(db.Integer, default=10) # Ex: Começa com 10 pra distribuir
+    pontos_talentos_livres = db.Column(db.Integer, default=15)  # Ex: Começa com 15 pra distribuir
+
+    xp_livre = db.Column(db.Integer, default=2000)  # Experiência livre para gastar
+
     def to_dict(self):
         return {
             "id": self.id,
@@ -58,7 +63,12 @@ class Personagem(db.Model):
             "is_dead": self.is_dead,
             "historia": self.historia,
             "banco_criticos": self.banco_criticos,
-            "banco_falhas": self.banco_falhas
+            "banco_falhas": self.banco_falhas,
+            "pontos_atributos_livres": self.pontos_atributos_livres,
+            "pontos_talentos_livres": self.pontos_talentos_livres,
+            "atributos": [a.to_dict() for a in self.atributos],
+            "talentos": [t.to_dict() for t in self.talentos],
+            "xp_livre": self.xp_livre
         }
 
 # --- 4. TABELAS DE MAGIA ---
@@ -109,22 +119,40 @@ class TalentoDef(db.Model):
 class FichaAtributo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     valor = db.Column(db.Integer, default=0)
-    rank = db.Column(db.String(1), default="F")
+    rank = db.Column(db.String(1), default="-")
     
     personagem_id = db.Column(db.Integer, db.ForeignKey('personagem.id'))
     atributo_def_id = db.Column(db.Integer, db.ForeignKey('atributo_def.id'))
     
     info = db.relationship('AtributoDef')
 
+    def to_dict(self):
+        return {
+            "id_vinculo": self.id, # Importante para o clique do botão
+            "nome": self.info.nome,
+            "sigla": self.info.sigla,
+            "valor": self.valor,
+            "rank": self.rank
+        }
+
 class FichaTalento(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     valor = db.Column(db.Integer, default=0)
-    rank = db.Column(db.String(1), default="F")
+    rank = db.Column(db.String(1), default="-")
     
     personagem_id = db.Column(db.Integer, db.ForeignKey('personagem.id'))
     talento_def_id = db.Column(db.Integer, db.ForeignKey('talento_def.id'))
     
     info = db.relationship('TalentoDef')
+
+    def to_dict(self):
+        return {
+            "id_vinculo": self.id,
+            "nome": self.info.nome,
+            "valor": self.valor,
+            "rank": self.rank,
+            "atributo_base": self.info.atributo_pai.sigla if self.info.atributo_pai else "-"
+        }
 
 # --- 7. TABELAS DE CÁLCULO (Tabelinhas da Imagem) ---
 

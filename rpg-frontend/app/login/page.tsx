@@ -7,11 +7,16 @@ export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [erro, setErro] = useState("");
+  
+  // Estados para Feedback Visual
+  const [msg, setMsg] = useState("");
+  const [tipoMsg, setTipoMsg] = useState(""); // "erro" ou "sucesso"
+  const [loading, setLoading] = useState(false);
 
   async function handleLogin(e: any) {
     e.preventDefault();
-    setErro("");
+    setMsg("");
+    setLoading(true);
 
     try {
       const response = await fetch("http://127.0.0.1:5000/login", {
@@ -26,33 +31,35 @@ export default function LoginPage() {
         localStorage.setItem("rpg_user", data.username);
         localStorage.setItem("is_master", data.is_master);
         localStorage.setItem("user_id", data.user_id);
-        router.push("/"); 
+        
+        setTipoMsg("sucesso");
+        setMsg(`Bem-vindo, ${data.username}! Entrando...`);
+        
+        // Pequeno delay para o usuário ler antes de mudar de página
+        setTimeout(() => router.push("/"), 1000);
       } else {
-        setErro(data.erro || "Erro ao logar");
+        setTipoMsg("erro");
+        setMsg(data.erro || "Falha ao entrar.");
       }
     } catch (err) {
-      setErro("Erro de conexão.");
+      setTipoMsg("erro");
+      setMsg("Servidor indisponível. Tente mais tarde.");
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden">
-      
-      {/* Fundo de Partículas */}
+    <div className="relative flex min-h-screen w-full items-center justify-center bg-slate-950 overflow-hidden">
       <div className="absolute inset-0 z-0">
         <ParticlesBackground />
       </div>
 
-      {/* Cartão de Login */}
       <div className="z-10 w-full max-w-md rounded-2xl bg-slate-900/90 p-8 shadow-2xl border border-slate-800 relative backdrop-blur-sm mx-4">
         
         <div className="text-center mb-8">
-            <div className="text-5xl mb-2 drop-shadow-lg animate-bounce">
-                🔐
-            </div>
-            <h1 className="text-3xl font-bold text-purple-500">
-                Acesso ao Grimório
-            </h1>
+            <div className="text-5xl mb-2 drop-shadow-lg animate-bounce">🔐</div>
+            <h1 className="text-3xl font-bold text-purple-500">Acesso ao Grimório</h1>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
@@ -78,13 +85,19 @@ export default function LoginPage() {
             />
           </div>
 
-          {erro && <p className="text-red-500 text-sm text-center bg-red-900/20 p-2 rounded">{erro}</p>}
+          {/* --- ÁREA DE FEEDBACK (Sem Pop-up!) --- */}
+          {msg && (
+            <div className={`text-center p-3 rounded-lg text-sm font-bold animate-pulse ${tipoMsg === "erro" ? "bg-red-900/50 text-red-200 border border-red-800" : "bg-green-900/50 text-green-200 border border-green-800"}`}>
+              {msg}
+            </div>
+          )}
 
           <button
             type="submit"
-            className="w-full rounded-lg bg-purple-600 py-3 font-bold text-white hover:bg-purple-700 transition-all shadow-lg shadow-purple-900/20 mt-4"
+            disabled={loading}
+            className="w-full rounded-lg bg-purple-600 py-3 font-bold text-white hover:bg-purple-700 transition-all shadow-lg shadow-purple-900/20 mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            ENTRAR
+            {loading ? "Verificando..." : "ENTRAR"}
           </button>
         </form>
 
