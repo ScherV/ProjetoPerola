@@ -1,10 +1,12 @@
 "use client";
-
 import { useCallback } from "react";
 import Particles from "react-tsparticles";
 import { loadSlim } from "tsparticles-slim";
+import { useTheme } from "../components/contexts/ThemeContext"; // <--- IMPORTAR O TEMA
 
 export default function ParticlesBackground() {
+  const { theme } = useTheme(); // <--- PEGAR A COR DO TEMA
+
   const particlesInit = useCallback(async (engine: any) => {
     await loadSlim(engine);
   }, []);
@@ -14,39 +16,26 @@ export default function ParticlesBackground() {
       id="tsparticles"
       init={particlesInit}
       options={{
-        fullScreen: {
-          enable: true,
-          zIndex: -1, // Garante que é o fundo absoluto
-        },
+        fullScreen: { enable: true, zIndex: -1 },
         background: {
-          color: {
-            value: "#020617", // Cor escura (Slate-950) aplicada AQUI
-          },
+            // O fundo agora é transparente para respeitar o gradiente da página
+            color: { value: "transparent" }, 
         },
         fpsLimit: 120,
         interactivity: {
           events: {
-            onHover: {
-              enable: true,
-              mode: "grab",
-            },
+            onHover: { enable: true, mode: "grab" },
             resize: true,
           },
           modes: {
-            grab: {
-              distance: 140,
-              links: {
-                opacity: 1,
-              },
-            },
+            grab: { distance: 140, links: { opacity: 1 } },
           },
         },
         particles: {
-          color: {
-            value: "#ffffff",
-          },
+          // AQUI A MÁGICA: A cor vem do tema!
+          color: { value: theme.particleColor }, 
           links: {
-            color: "#a855f7",
+            color: theme.particleColor, // Linhas também mudam de cor
             distance: 150,
             enable: true,
             opacity: 0.3,
@@ -54,24 +43,15 @@ export default function ParticlesBackground() {
           },
           move: {
             enable: true,
-            speed: 0.8,
+            speed: 0.8, // Velocidade lenta e mística
           },
           number: {
-            density: {
-              enable: true,
-              area: 800,
-            },
+            density: { enable: true, area: 800 },
             value: 60,
           },
-          opacity: {
-            value: 0.5,
-          },
-          shape: {
-            type: "circle",
-          },
-          size: {
-            value: { min: 1, max: 3 },
-          },
+          opacity: { value: 0.5 },
+          shape: { type: "circle" },
+          size: { value: { min: 1, max: 3 } },
         },
         detectRetina: true,
       }}

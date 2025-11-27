@@ -3,7 +3,7 @@ from flask_cors import CORS
 from database import db
 from models import (
     Classe, Personagem, User, Magia, MagiaAprendida, 
-    RegraDado, AtributoDef, TalentoDef, FichaAtributo, FichaTalento, RegraBonusRank
+    RegraDado, AtributoDef, TalentoDef, FichaAtributo, FichaTalento, RegraBonusRank, Mapa
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 import random
@@ -248,6 +248,25 @@ def rolar():
 @app.route('/mestre/personagens', methods=['GET'])
 def listar_todos():
     return jsonify([dict(p.to_dict(), id=p.id) for p in Personagem.query.all()]), 200
+
+@app.route('/desbloquear-mapa', methods=['POST'])
+def desbloquear_mapa():
+    data = request.get_json()
+    personagem_id = data.get('personagem_id')
+    mapa_id = data.get('mapa_id') # O ID do mapa (1, 2 ou 3)
+
+    personagem = Personagem.query.get(personagem_id)
+    mapa = Mapa.query.get(mapa_id)
+
+    if not personagem or not mapa:
+        return jsonify({"erro": "Dados inválidos"}), 404
+
+    if mapa not in personagem.mapas:
+        personagem.mapas.append(mapa)
+        db.session.commit()
+        return jsonify({"mensagem": f"Mapa '{mapa.nome}' desbloqueado!"}), 200
+    
+    return jsonify({"mensagem": "Personagem já possui este mapa."}), 200
 
 if __name__ == '__main__':
     criar_tabelas()

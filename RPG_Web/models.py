@@ -6,6 +6,12 @@ classe_magias = db.Table('classe_magias',
     db.Column('magia_id', db.Integer, db.ForeignKey('magia.id'), primary_key=True)
 )
 
+# Tabela auxiliar para Mapas Desbloqueados
+personagem_mapas = db.Table('personagem_mapas',
+    db.Column('personagem_id', db.Integer, db.ForeignKey('personagem.id'), primary_key=True),
+    db.Column('mapa_id', db.Integer, db.ForeignKey('mapa.id'), primary_key=True)
+)
+
 # --- 1. TABELA DE USUÁRIOS ---
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -54,6 +60,8 @@ class Personagem(db.Model):
 
     xp_livre = db.Column(db.Integer, default=2000)  # Experiência livre para gastar
 
+    mapas = db.relationship('Mapa', secondary=personagem_mapas, backref='exploradores', lazy=True)
+
     def to_dict(self):
         return {
             "id": self.id,
@@ -68,7 +76,8 @@ class Personagem(db.Model):
             "pontos_talentos_livres": self.pontos_talentos_livres,
             "atributos": [a.to_dict() for a in self.atributos],
             "talentos": [t.to_dict() for t in self.talentos],
-            "xp_livre": self.xp_livre
+            "xp_livre": self.xp_livre,
+            "mapas": [m.to_dict() for m in self.mapas]
         }
 
 # --- 4. TABELAS DE MAGIA ---
@@ -167,3 +176,17 @@ class RegraDado(db.Model):
     numero_dado = db.Column(db.Integer)
     modificador = db.Column(db.Integer)
     eh_falha = db.Column(db.Boolean, default=False)
+
+class Mapa(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False)
+    descricao = db.Column(db.String(250))
+    arquivo_url = db.Column(db.String(200))  # URL ou caminho do arquivo do mapa
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "nome": self.nome,
+            "descricao": self.descricao,
+            "url": self.arquivo_url
+        }
