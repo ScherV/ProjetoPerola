@@ -62,6 +62,8 @@ class Personagem(db.Model):
 
     mapas = db.relationship('Mapa', secondary=personagem_mapas, backref='exploradores', lazy=True)
 
+    notas = db.Column(db.Text, default="")
+
     def to_dict(self):
         return {
             "id": self.id,
@@ -77,7 +79,8 @@ class Personagem(db.Model):
             "atributos": [a.to_dict() for a in self.atributos],
             "talentos": [t.to_dict() for t in self.talentos],
             "xp_livre": self.xp_livre,
-            "mapas": [m.to_dict() for m in self.mapas]
+            "mapas": [m.to_dict() for m in self.mapas],
+            "notas": self.notas
         }
 
 # --- 4. TABELAS DE MAGIA ---
@@ -163,12 +166,23 @@ class FichaTalento(db.Model):
     info = db.relationship('TalentoDef')
 
     def to_dict(self):
+
+        atributo_pai_ficha = FichaAtributo.query.filter_by(
+            personagem_id=self.personagem_id, 
+            atributo_def_id=self.info.atributo_pai_id
+        ).first()
+
+        valor_atributo = atributo_pai_ficha.valor if atributo_pai_ficha else 0
+        rank_atributo = atributo_pai_ficha.rank if atributo_pai_ficha else "-"
+
         return {
             "id_vinculo": self.id,
             "nome": self.info.nome,
             "valor": self.valor,
             "rank": self.rank,
-            "atributo_base": self.info.atributo_pai.sigla if self.info.atributo_pai else "-"
+            "atributo_base": self.info.atributo_pai.sigla if self.info.atributo_pai else "-",
+            "valor_atributo_pai": valor_atributo,
+            "rank_atributo_pai": rank_atributo
         }
 
 # --- 7. TABELAS DE CÁLCULO (Tabelinhas da Imagem) ---

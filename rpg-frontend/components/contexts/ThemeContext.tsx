@@ -19,7 +19,7 @@ const themes = {
     bgTalent: "bg-green-600",
     particleColor: "#ffffff",
     successBadge: "bg-green-900/40 text-green-400 border-green-800",
-    errorBadge: "bg-red-900/40 text-red-400 border-red-800"
+    errorBadge: "bg-red-900/40 text-red-400 border-red-800",
   },
   finxy: {
     name: "Criação (Finxy)",

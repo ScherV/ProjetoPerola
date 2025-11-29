@@ -249,6 +249,13 @@ def rolar():
 def listar_todos():
     return jsonify([dict(p.to_dict(), id=p.id) for p in Personagem.query.all()]), 200
 
+# No topo: from models import Mapa
+
+@app.route('/todos-mapas', methods=['GET'])
+def listar_todos_mapas():
+    mapas = Mapa.query.all()
+    return jsonify([m.to_dict() for m in mapas]), 200
+
 @app.route('/desbloquear-mapa', methods=['POST'])
 def desbloquear_mapa():
     data = request.get_json()
@@ -267,6 +274,56 @@ def desbloquear_mapa():
         return jsonify({"mensagem": f"Mapa '{mapa.nome}' desbloqueado!"}), 200
     
     return jsonify({"mensagem": "Personagem já possui este mapa."}), 200
+
+# --- ROTA DE KARMA (CRÍTICO) ---
+@app.route('/guardar-critico', methods=['POST'])
+def guardar_critico():
+    data = request.get_json()
+    user_id = data.get('user_id')
+    
+    personagem = Personagem.query.filter_by(user_id=user_id, is_dead=False).first()
+    if not personagem:
+        return jsonify({"erro": "Personagem não encontrado"}), 404
+
+    # Adiciona 1 ao banco de críticos
+    personagem.banco_criticos += 1
+    db.session.commit()
+    
+    return jsonify({
+        "mensagem": "Crítico guardado com sucesso!", 
+        "saldo": personagem.banco_criticos
+    }), 200
+
+@app.route('/guardar-falha', methods=['POST'])
+def guardar_falha():
+    data = request.get_json()
+    user_id = data.get('user_id')
+    
+    personagem = Personagem.query.filter_by(user_id=user_id, is_dead=False).first()
+    if not personagem: return jsonify({"erro": "Personagem sumiu"}), 404
+
+    # Adiciona 1 ao banco de falhas (Maldições)
+    personagem.banco_falhas += 1
+    db.session.commit()
+    
+    return jsonify({
+        "mensagem": "Maldição guardada com sucesso!", 
+        "saldo": personagem.banco_falhas
+    }), 200
+
+@app.route('/salvar-notas', methods=['POST'])
+def salvar_notas():
+    data = request.get_json()
+    user_id = data.get('user_id')
+    texto = data.get('texto')
+
+    personagem = Personagem.query.filter_by(user_id=user_id, is_dead=False).first()
+    if not personagem: return jsonify({"erro": "Personagem sumiu"}), 404
+
+    personagem.notas = texto
+    db.session.commit()
+    
+    return jsonify({"mensagem": "Notas salvas!"}), 200
 
 if __name__ == '__main__':
     criar_tabelas()

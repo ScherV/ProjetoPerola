@@ -2,47 +2,46 @@ from app import app
 from database import db
 from models import Mapa, Personagem
 
-def criar_mapas():
+def semear_mapas():
     with app.app_context():
-        print("🗺️ Cartografando o mundo...")
+        print("🗺️ Desenhando os Mapas do Mundo...")
 
-        lista_mapas = [
+        # Lista exata das suas imagens
+        mapas = [
             {
-                "nome": "Mundo Conhecido",
-                "desc": "O mapa geral do continente e seus arredores.",
-                "url": "/maps/mundo.jpg"
+                "nome": "O Mundo Conhecido",
+                "url": "/maps/mundo.jpg" # Caminho na pasta public
             },
             {
                 "nome": "Região de Mandriosa",
-                "desc": "A área protegida pela Cúpula, contendo florestas e vilas.",
                 "url": "/maps/mandriosa.jpg"
             },
             {
-                "nome": "Vila da Fossa",
-                "desc": "Um local perigoso ao sudoeste de Mandriosa.",
+                "nome": "Continente da Fossa",
                 "url": "/maps/fossa.jpg"
             }
         ]
 
-        for m in lista_mapas:
-            if not Mapa.query.filter_by(nome=m["nome"]).first():
-                novo_mapa = Mapa(nome=m["nome"], descricao=m["desc"], arquivo_url=m["url"])
-                db.session.add(novo_mapa)
-                print(f" -> Mapa '{m['nome']}' criado.")
-
-        db.session.commit()
-        
-        # EXTRA: Dar o Mapa Mundi para TODOS os personagens existentes (presente do GM)
-        mapa_mundo = Mapa.query.filter_by(nome="Mundo Conhecido").first()
-        personagens = Personagem.query.all()
-        
-        for p in personagens:
-            if mapa_mundo not in p.mapas:
-                p.mapas.append(mapa_mundo)
-                print(f" -> {p.nome} recebeu o Mapa Mundi.")
+        for m in mapas:
+            mapa_db = Mapa.query.filter_by(nome=m["nome"]).first()
+            if not mapa_db:
+                novo = Mapa(nome=m["nome"], arquivo_url=m["url"])
+                db.session.add(novo)
+                print(f" -> Mapa '{m['nome']}' catalogado.")
+            else:
+                # Atualiza caso você mude a descrição ou url
+                mapa_db.arquivo_url = m["url"]
         
         db.session.commit()
-        print("✅ Cartografia concluída!")
+        
+        # EXTRA: Dar o Mapa Mundi para TODOS os personagens (Presente do Mestre)
+        mapa_inicial = Mapa.query.filter_by(nome="O Mundo Conhecido").first()
+        if mapa_inicial:
+            for p in Personagem.query.all():
+                if mapa_inicial not in p.mapas:
+                    p.mapas.append(mapa_inicial)
+            db.session.commit()
+            print("🎁 Mapa Mundi entregue a todos os viajantes!")
 
 if __name__ == "__main__":
-    criar_mapas()
+    semear_mapas()
