@@ -84,11 +84,18 @@ class Personagem(db.Model):
 class Magia(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(80), unique=True, nullable=False)
-    descricao = db.Column(db.String(200))
+    descricao = db.Column(db.String(200)) # Descrição curta (para o card)
+    detalhes = db.Column(db.Text) # <--- NOVO: Descrição longa e observações
     tipo = db.Column(db.String(50))
     
     def to_dict(self):
-        return {"id": self.id, "nome": self.nome, "descricao": self.descricao, "tipo": self.tipo}
+        return {
+            "id": self.id, 
+            "nome": self.nome, 
+            "descricao": self.descricao, 
+            "detalhes": self.detalhes, # <--- Retornar isso também
+            "tipo": self.tipo
+        }
 
 class MagiaAprendida(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -105,6 +112,7 @@ class MagiaAprendida(db.Model):
             "id_vinculo": self.id,
             "nome": self.info_magia.nome,
             "descricao": self.info_magia.descricao,
+            "detalhes": self.info_magia.detalhes, 
             "nivel": self.nivel,
             "tipo": self.info_magia.tipo,
             "ativa": self.ativa

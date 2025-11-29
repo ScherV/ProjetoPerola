@@ -38,8 +38,8 @@ export default function ParticlesBackground() {
             color: theme.particleColor, // Linhas também mudam de cor
             distance: 150,
             enable: true,
-            opacity: 0.3,
-            width: 1,
+            opacity: 0.5,
+            width: 2,
           },
           move: {
             enable: true,
@@ -51,7 +51,7 @@ export default function ParticlesBackground() {
           },
           opacity: { value: 0.5 },
           shape: { type: "circle" },
-          size: { value: { min: 1, max: 3 } },
+          size: { value: { min: 2, max: 3 } },
         },
         detectRetina: true,
       }}
