@@ -2,11 +2,15 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import ParticlesBackground from "../../components/ParticlesBackground";
-import { useTheme } from "../../components/contexts/ThemeContext"; // Importar Tema
+import { useTheme } from "../../components/contexts/ThemeContext";
+// 1. IMPORTAR NOTIFICAÇÃO
+import { useNotification } from "../../components/contexts/NotificationContext";
 
 export default function FichaPage() {
   const router = useRouter();
   const { theme, setTheme, currentTheme } = useTheme();
+  // 2. USAR O HOOK
+  const { showNotification } = useNotification();
 
   const [loading, setLoading] = useState(true);
   const [personagem, setPersonagem] = useState<any>(null);
@@ -20,33 +24,36 @@ export default function FichaPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    async function carregarDados() {
-      const userId = localStorage.getItem("user_id");
-      if (!userId) { router.push("/login"); return; }
+  // 3. FUNÇÃO DE CARREGAR DADOS (Extraída para ser reutilizada)
+  async function carregarDados() {
+    const userId = localStorage.getItem("user_id");
+    if (!userId) { router.push("/login"); return; }
 
-      try {
-        const resFicha = await fetch("http://127.0.0.1:5000/meu-personagem", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: userId }),
-        });
+    try {
+      const resFicha = await fetch("http://127.0.0.1:5000/meu-personagem", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId }),
+      });
 
-        if (resFicha.status === 200) {
-          setPersonagem(await resFicha.json());
-          const savedImage = localStorage.getItem(`foto_personagem_${userId}`);
-          if (savedImage) setImagemPerfil(savedImage);
-        }
-
-        const resClasses = await fetch("http://127.0.0.1:5000/classes");
-        if (resClasses.ok) setListaClasses(await resClasses.json());
-
-      } catch (error) {
-        console.error("Erro:", error);
-      } finally {
-        setLoading(false);
+      if (resFicha.status === 200) {
+        setPersonagem(await resFicha.json());
+        const savedImage = localStorage.getItem(`foto_personagem_${userId}`);
+        if (savedImage) setImagemPerfil(savedImage);
       }
+
+      const resClasses = await fetch("http://127.0.0.1:5000/classes");
+      if (resClasses.ok) setListaClasses(await resClasses.json());
+
+    } catch (error) {
+      console.error("Erro:", error);
+    } finally {
+      setLoading(false);
     }
+  }
+
+  // Carrega ao abrir a página
+  useEffect(() => {
     carregarDados();
   }, []);
 
@@ -67,7 +74,11 @@ export default function FichaPage() {
   async function handleCriarPersonagem(e: any) {
     e.preventDefault();
     const userId = localStorage.getItem("user_id");
-    if (!classeSelecionada) { alert("Escolha uma classe!"); return; }
+    
+    if (!classeSelecionada) { 
+        showNotification("Escolha um caminho (Classe) para sua alma!", "erro"); 
+        return; 
+    }
 
     try {
       const response = await fetch("http://127.0.0.1:5000/criar-personagem", {
@@ -82,14 +93,17 @@ export default function FichaPage() {
       });
 
       if (response.status === 201) {
-        alert("Personagem criado com sucesso!");
-        window.location.reload();
+        // 4. MENSAGEM TEMÁTICA
+        showNotification(`✨ A teia do destino foi tecida! ${nomeChar} despertou.`, "sucesso");
+        
+        setShowModal(false); // Fecha o modal
+        carregarDados(); // Recarrega os dados sem dar refresh na página (para ver a notificação)
       } else {
         const erro = await response.json();
-        alert("Erro: " + erro.erro);
+        showNotification(erro.erro || "O caos impediu a criação.", "erro");
       }
     } catch (err) {
-      alert("Erro de conexão.");
+      showNotification("Erro de conexão com os planos superiores.", "erro");
     }
   }
 
@@ -209,25 +223,25 @@ export default function FichaPage() {
             <form onSubmit={handleCriarPersonagem} className="space-y-5">
               <div>
                 <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${theme.primary}`}>Nome</label>
-                <input required value={nomeChar} onChange={e => setNomeChar(e.target.value)} className="w-full p-4 rounded-xl bg-black/30 border border-white/10 focus:border-current outline-none transition-all" placeholder="Ex: Gandalf" />
+                <input required value={nomeChar} onChange={e => setNomeChar(e.target.value)} className="w-full p-4 rounded-xl bg-black/30 border border-white/10 focus:border-current outline-none transition-all text-white" placeholder="Ex: Gandalf" />
               </div>
               <div>
                 <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${theme.primary}`}>Classe</label>
                 <div className="relative">
-                    <select required value={classeSelecionada} onChange={e => setClasseSelecionada(e.target.value)} className="w-full p-4 rounded-xl bg-black/30 border border-white/10 focus:border-current outline-none appearance-none cursor-pointer hover:bg-black/40 transition-colors">
-                        <option value="">-- Selecione --</option>
-                        {listaClasses.map((classe) => (<option key={classe.id} value={classe.id}>{classe.nome}</option>))}
+                    <select required value={classeSelecionada} onChange={e => setClasseSelecionada(e.target.value)} className="w-full p-4 rounded-xl bg-black/30 border border-white/10 focus:border-current outline-none appearance-none cursor-pointer hover:bg-black/40 transition-colors text-white">
+                        <option value="" className="text-black">-- Selecione --</option>
+                        {listaClasses.map((classe) => (<option key={classe.id} value={classe.id} className="text-black">{classe.nome}</option>))}
                     </select>
                 </div>
-                {classeSelecionada && (<div className="mt-3 p-3 bg-black/20 rounded-lg border border-white/10 text-xs opacity-80 italic">{listaClasses.find(c => c.id == classeSelecionada)?.descricao}</div>)}
+                {classeSelecionada && (<div className="mt-3 p-3 bg-black/20 rounded-lg border border-white/10 text-xs opacity-80 italic text-white">{listaClasses.find(c => c.id == classeSelecionada)?.descricao}</div>)}
               </div>
               <div>
                 <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${theme.primary}`}>Biografia</label>
-                <textarea rows={4} value={historiaChar} onChange={e => setHistoriaChar(e.target.value)} className="w-full p-4 rounded-xl bg-black/30 border border-white/10 focus:border-current outline-none resize-none" placeholder="Origem..." />
+                <textarea rows={4} value={historiaChar} onChange={e => setHistoriaChar(e.target.value)} className="w-full p-4 rounded-xl bg-black/30 border border-white/10 focus:border-current outline-none resize-none text-white" placeholder="Origem..." />
               </div>
               <div className="pt-4 flex gap-3">
-                <button type="button" onClick={() => setShowModal(false)} className="flex-1 p-4 rounded-xl bg-white/5 hover:bg-white/10 font-bold transition-colors uppercase text-sm border border-white/10">Cancelar</button>
-                <button type="submit" className={`flex-1 p-4 rounded-xl bg-gradient-to-r ${theme.button} font-black transition-transform active:scale-95 uppercase text-sm shadow-lg`}>NASCER</button>
+                <button type="button" onClick={() => setShowModal(false)} className="flex-1 p-4 rounded-xl bg-white/5 hover:bg-white/10 font-bold transition-colors uppercase text-sm border border-white/10 text-white">Cancelar</button>
+                <button type="submit" className={`flex-1 p-4 rounded-xl bg-gradient-to-r ${theme.button} font-black transition-transform active:scale-95 uppercase text-sm shadow-lg text-white`}>NASCER</button>
               </div>
             </form>
           </div>
