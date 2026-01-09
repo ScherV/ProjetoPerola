@@ -1,7 +1,7 @@
 "use client";
 import { useTheme } from "../components/contexts/ThemeContext";
 import ParticlesBackground from "./ParticlesBackground";
-import { ReactNode } from "react";
+import { ReactNode, useState, useEffect } from "react"; // <--- ADICIONADO useState e useEffect
 import { useRouter } from "next/navigation";
 
 interface PageWrapperProps {
@@ -12,14 +12,23 @@ export default function PageWrapper({ children }: PageWrapperProps) {
   const { theme, setTheme, currentTheme } = useTheme();
   const router = useRouter();
 
+  // CORREÇÃO DO ERRO DE HIDRATAÇÃO
+  // Começamos com um valor padrão seguro ("Viajante")
+  const [user, setUser] = useState("Viajante");
+
+  useEffect(() => {
+    // Este código roda apenas no navegador, evitando o erro
+    const storedUser = localStorage.getItem("rpg_user");
+    if (storedUser) {
+      setUser(storedUser);
+    }
+  }, []);
+
   // Função de Logout (Disponível em todas as telas)
   const handleLogout = () => {
     localStorage.clear();
     router.push("/login");
   };
-
-  // Pega o usuário para mostrar no topo
-  const user = typeof window !== "undefined" ? localStorage.getItem("rpg_user") : "Viajante";
 
   return (
     <div className={`relative min-h-screen w-full ${theme.bg} ${theme.text} font-sans transition-colors duration-500 overflow-x-hidden flex flex-col`}>

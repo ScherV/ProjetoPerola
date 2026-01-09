@@ -266,7 +266,7 @@ export default function Home() {
                     {!isMaster ? (
                         <>
                         <button onClick={() => router.push("/ficha")} className="group p-4 bg-black/10 hover:bg-black/20 rounded-lg text-left border-l-4 border-blue-500 transition-all hover:translate-x-1"><h3 className="font-bold group-hover:text-blue-500 transition-colors">Minha Ficha</h3><p className={`text-xs opacity-60 ${theme.textMuted}`}>Status, Biografia e Atributos</p></button>
-                        <button onClick={() => router.push("/grimorio")} className="group p-4 bg-black/10 hover:bg-black/20 rounded-lg text-left border-l-4 border-green-500 transition-all hover:translate-x-1"><h3 className="font-bold group-hover:text-green-500 transition-colors">Meu Grimório</h3><p className={`text-xs opacity-60 ${theme.textMuted}`}>Consultar e lançar magias</p></button>
+                        {/* Botão Grimório Removido */}
                         <button onClick={() => router.push("/mapas")} className="group p-4 bg-black/10 hover:bg-black/20 rounded-lg text-left border-l-4 border-yellow-500 transition-all hover:translate-x-1"><h3 className="font-bold group-hover:text-yellow-500 transition-colors">Mapas</h3><p className={`text-xs opacity-60 ${theme.textMuted}`}>Locais descobertos</p></button>
                         </>
                     ) : (
@@ -406,7 +406,7 @@ export default function Home() {
                     <span className="text-[10px] font-mono opacity-50 uppercase tracking-widest border border-current/10 px-2 py-0.5 rounded">Banco Espiritual</span>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-black/10 rounded-lg p-4 flex flex-col items-center border border-green-500/20 group hover:bg-green-900/10 transition-colors cursor-help"><span className="text-4xl font-black text-green-500 drop-shadow-sm group-hover:scale-110 transition-transform">{personagem?.banco_criticos || 0}</span><span className="text-[10px] font-bold uppercase text-green-600/70 mt-1">Milagres (20)</span></div>
+                    <div className="bg-black/10 rounded-lg p-4 flex flex-col items-center border border-green-500/20 group hover:bg-green-900/10 transition-colors cursor-help"><span className="text-4xl font-black text-green-500 drop-shadow-sm group-hover:scale-110 transition-transform">{personagem?.banco_criticos || 0}</span><span className="text-[10px] font-bold uppercase text-green-600/70 mt-1">Bençãos (20)</span></div>
                     <div className="bg-black/10 rounded-lg p-4 flex flex-col items-center border border-red-500/20 group hover:bg-red-900/10 transition-colors cursor-help"><span className="text-4xl font-black text-red-500 drop-shadow-sm group-hover:scale-110 transition-transform">{personagem?.banco_falhas || 0}</span><span className="text-[10px] font-bold uppercase text-red-600/70 mt-1">Maldições (1)</span></div>
                 </div>
             </section>

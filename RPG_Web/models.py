@@ -202,13 +202,15 @@ class RegraDado(db.Model):
 class Mapa(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
-    descricao = db.Column(db.String(250))
-    arquivo_url = db.Column(db.String(200))  # URL ou caminho do arquivo do mapa
+    descricao = db.Column(db.String(500))
+    imagem_url = db.Column(db.String(500)) # <--- ESSENCIAL
+    is_public = db.Column(db.Boolean, default=True)
 
     def to_dict(self):
         return {
             "id": self.id,
             "nome": self.nome,
             "descricao": self.descricao,
-            "url": self.arquivo_url
+            "imagem_url": self.imagem_url, # <--- ESSENCIAL
+            "is_public": self.is_public
         }

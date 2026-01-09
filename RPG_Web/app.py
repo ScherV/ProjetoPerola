@@ -142,17 +142,74 @@ def listar_classes():
 @app.route('/criar-personagem', methods=['POST'])
 def criar_personagem():
     d = request.get_json()
+    
+    # 1. Validação Básica
+    if not d or 'user_id' not in d or 'nome' not in d:
+        return jsonify({'erro': 'Dados incompletos!'}), 400
+
+    # Verifica se já tem personagem vivo
     if Personagem.query.filter_by(user_id=d.get('user_id'), is_dead=False).first():
         return jsonify({"erro": "Já possui personagem vivo"}), 403
 
-    novo = Personagem(nome=d.get('nome'), historia=d.get('historia'), user_id=d.get('user_id'), classe_id=d.get('classe_id', 1))
+    user_id = d['user_id']
+    nome = d['nome']
+    historia = d.get('historia', '')
     
-    # Kit Inicial de Magias
-    classe = Classe.query.get(novo.classe_id)
-    if classe:
-        for m in classe.magias_iniciais:
-            novo.grimorio.append(MagiaAprendida(info_magia=m, nivel=1))
+    # 2. Captura os dados novos do Frontend
+    classe_id_form = d.get('classe_id') 
+    tipo_origem = d.get('tipo_origem', 'mandriosa') # "mandriosa", "elemental" ou "personalizado"
+    elemento = d.get('elemento') # Ex: "Fogo", "Ar" (pode vir nulo se não for elemental)
 
+    classe_final_id = 1 # Fallback padrão (Ceifeiro) caso algo falhe muito feio
+
+    # --- LÓGICA INTELIGENTE DE SELEÇÃO DE CLASSE ---
+    
+    # CASO A: MANDRIOSA (Classes Padrão: Ceifeiro, Ladino...)
+    if tipo_origem == 'mandriosa' and classe_id_form:
+        classe_final_id = classe_id_form
+
+    # CASO B: ELEMENTAL (Busca "Elemental do Ar/Fogo/etc" no banco)
+    elif tipo_origem == 'elemental' and elemento:
+        # Ajusta a preposição gramatical (Elemental DA Água vs Elemental DO Ar)
+        preposicao = "da" if elemento in ["Água", "Terra"] else "do"
+        
+        # Limpa o nome (remove emojis caso venha do front, ex: "Fogo 🔥" vira "Fogo")
+        elemento_limpo = elemento.split()[0] 
+        nome_classe = f"Elemental {preposicao} {elemento_limpo}" # Ex: "Elemental do Ar"
+        
+        # Busca o ID dessa classe no banco
+        classe_db = Classe.query.filter_by(nome=nome_classe).first()
+        if classe_db:
+            classe_final_id = classe_db.id
+        else:
+            # Se não achou (esqueceu do seed?), cria agora para não quebrar
+            nova_classe = Classe(nome=nome_classe, descricao=f"Entidade elemental de {elemento_limpo}.")
+            db.session.add(nova_classe)
+            db.session.commit()
+            classe_final_id = nova_classe.id
+
+    # CASO C: PERSONALIZADO / OUTRO
+    elif tipo_origem == 'personalizado':
+        classe_db = Classe.query.filter_by(nome="Personalizado").first()
+        if classe_db:
+            classe_final_id = classe_db.id
+        else:
+            nova = Classe(nome="Personalizado", descricao="Origem única.")
+            db.session.add(nova)
+            db.session.commit()
+            classe_final_id = nova.id
+
+    # 3. Criação do Personagem no Banco
+    novo = Personagem(nome=nome, historia=historia, user_id=user_id, classe_id=classe_final_id)
+    
+    # 4. Entrega Grimório (Apenas para classes de Mandriosa por enquanto)
+    # Elementais nascem com grimório vazio para serem preenchidos depois ou manualmente
+    if tipo_origem == 'mandriosa':
+        classe = Classe.query.get(novo.classe_id)
+        if classe:
+            for m in classe.magias_iniciais:
+                novo.grimorio.append(MagiaAprendida(info_magia=m, nivel=1))
+    
     try:
         db.session.add(novo)
         db.session.commit()
@@ -211,7 +268,7 @@ def tentar_evoluir():
         "novoRank": item.rank,
         "novoSaldo": personagem.xp_livre,
         "dados": rolagens,
-        "subiuRank": subiu_rank, # <--- AVISO IMPORTANTE PRO FRONTEND
+        "subiuRank": subiu_rank, 
         "custo_pago": custo
     }), 200
 
@@ -224,20 +281,43 @@ def ver_grimorio(id):
 @app.route('/habilidades/<int:pid>/<nome>', methods=['PUT'])
 def upar_magia(pid, nome):
     p = Personagem.query.get(pid)
-    magia = next((m for m in p.grimorio if m.info_magia.nome == nome), None)
-    if not magia: return jsonify({"erro": "Não encontrada"}), 404
+    if not p: return jsonify({"erro": "Personagem não encontrado"}), 404
 
-    # Lógica da Média
-    novo_lvl = magia.nivel + 1
-    total = len(p.grimorio)
-    if total > 1:
-        media = sum(m.nivel for m in p.grimorio) / total
-        if novo_lvl > (media + 1.5):
-            return jsonify({"erro": "Desequilíbrio!", "detalhe": f"Média: {media:.1f}"}), 400
+    # 1. Verifica se o personagem JÁ TEM a magia
+    magia_aprendida = next((m for m in p.grimorio if m.info_magia.nome == nome), None)
 
-    magia.nivel = novo_lvl
-    db.session.commit()
-    return jsonify({"mensagem": "Level Up!"}), 200
+    if magia_aprendida:
+        # --- CENÁRIO A: EVOLUIR (Level Up) ---
+        
+        # Regra da Média (Opcional - Evita ter uma magia lvl 5 e outra lvl 1)
+        # Se quiser remover essa trava, apague o bloco 'total > 1' abaixo.
+        novo_lvl = magia_aprendida.nivel + 1
+        total = len(p.grimorio)
+        if total > 1:
+            media = sum(m.nivel for m in p.grimorio) / total
+            # Permite estar até 2 níveis acima da média (ajuste conforme gosto)
+            if novo_lvl > (media + 2.0): 
+                return jsonify({"erro": "Você deve evoluir suas outras habilidades primeiro!", "detalhe": f"Média do Grimório: {media:.1f}"}), 400
+
+        magia_aprendida.nivel = novo_lvl
+        db.session.commit()
+        return jsonify({"mensagem": f"Level Up! {nome} subiu para Nível {novo_lvl}."}), 200
+
+    else:
+        # --- CENÁRIO B: APRENDER (Novo) ---
+        
+        # Busca a magia no banco de dados geral (tabela Magia)
+        magia_db = Magia.query.filter_by(nome=nome).first()
+        
+        if not magia_db:
+            return jsonify({"erro": f"A habilidade '{nome}' não existe nos registros antigos."}), 404
+        
+        # Cria o vínculo (Nível 1)
+        nova_aprendida = MagiaAprendida(info_magia=magia_db, nivel=1)
+        p.grimorio.append(nova_aprendida)
+        db.session.commit()
+        
+        return jsonify({"mensagem": f"Habilidade Aprendida! {nome} adicionada ao grimório."}), 201
 
 # --- MESTRE / DADOS ---
 @app.route('/rolar', methods=['POST'])
@@ -249,9 +329,7 @@ def rolar():
 def listar_todos():
     return jsonify([dict(p.to_dict(), id=p.id) for p in Personagem.query.all()]), 200
 
-# No topo: from models import Mapa
-
-@app.route('/todos-mapas', methods=['GET'])
+@app.route('/mapas', methods=['GET'])
 def listar_todos_mapas():
     mapas = Mapa.query.all()
     return jsonify([m.to_dict() for m in mapas]), 200
@@ -260,7 +338,7 @@ def listar_todos_mapas():
 def desbloquear_mapa():
     data = request.get_json()
     personagem_id = data.get('personagem_id')
-    mapa_id = data.get('mapa_id') # O ID do mapa (1, 2 ou 3)
+    mapa_id = data.get('mapa_id') 
 
     personagem = Personagem.query.get(personagem_id)
     mapa = Mapa.query.get(mapa_id)
@@ -324,6 +402,136 @@ def salvar_notas():
     db.session.commit()
     
     return jsonify({"mensagem": "Notas salvas!"}), 200
+
+def calcular_rank_sistema(pontos_brutos):
+    """
+    Regra do Pérola RPG:
+    A cada 8 pontos completos, sobe um Rank e o valor reseta para 1.
+    1-8 pts: Rank F (Valor 1-8)
+    9-16 pts: Rank E (Valor 1-8)
+    ... e assim por diante.
+    """
+    if pontos_brutos <= 0: 
+        return {"valor": 0, "rank": "-"}
+    
+    # Lista de Ranks Oficial
+    ranks = ["F", "E", "D", "C", "B", "A", "S", "Z"]
+    
+    # Matemática do Ciclo de 8
+    index = (pontos_brutos - 1) // 8
+    valor_resetado = ((pontos_brutos - 1) % 8) + 1
+    
+    # Proteção: Se passar do Rank Z, trava no Z
+    if index >= len(ranks):
+        rank_atual = "Z"
+        valor_resetado = 8 
+    else:
+        rank_atual = ranks[index]
+    
+    return {"valor": valor_resetado, "rank": rank_atual}
+
+# --- ROTA DE NPC (Gerador) ---
+@app.route('/gerar-npc', methods=['POST'])
+def gerar_npc():
+    data = request.json
+    nivel = int(data.get('nivel', 1))
+    nome_customizado = data.get('nome', '').strip() or "Inimigo"
+    
+    classe_selecionada = data.get('classe', 'Aleatorio')
+    arquetipo_selecionado = data.get('arquetipo', 'Aleatorio')
+
+    # 1. Definições do Sistema
+    ATRIBUTOS = ["DES", "FOR", "VIG", "CAR", "INT", "PER", "EMO", "MAN"]
+    
+    TALENTOS_DB = {
+        "DES": ["Atletismo", "Armamento", "Furtividade"],
+        "FOR": ["Briga", "Esquiva", "Adrenalina"],
+        "VIG": ["Resistência", "Mira", "Ofício"],
+        "CAR": ["Lábia", "Charme", "Empatia"],
+        "INT": ["Acadêmicos", "Medicina", "Sobrevivência"],
+        "PER": ["Investigação", "Prontidão", "Ocultismo"],
+        "EMO": ["Autocontrole", "Coragem", "Consciência"],
+        "MAN": ["Imponência", "Malícia", "Performance"]
+    }
+
+    # 2. Prioridades
+    prioridade_talentos = {
+        "Ceifeiro": ["Ocultismo", "Imponência", "Briga", "Coragem", "Consciência", "Autocontrole"],
+        "Ladino": ["Furtividade", "Malícia", "Lábia", "Armamento", "Esquiva"],
+        "Alquimista": ["Medicina", "Ofício", "Acadêmicos", "Investigação", "Sobrevivência"],
+        "Aleatorio": [] 
+    }
+
+    prioridade_atributos = {
+        "Combatente": ["FOR", "VIG", "DES"],
+        "Atirador": ["VIG", "DES", "PER"],
+        "Ocultista": ["INT", "PER", "EMO"],
+        "Social": ["CAR", "MAN", "EMO"],
+        "Tanque": ["VIG", "FOR", "EMO"],
+        "Aleatorio": [] 
+    }
+
+    foco_talentos = prioridade_talentos.get(classe_selecionada, [])
+    foco_atributos = prioridade_atributos.get(arquetipo_selecionado, [])
+
+    config_pontos = { 1: 100, 2: 300, 3: 500, 4: 700, 5: 1000 }
+    pontos_totais = config_pontos.get(nivel, 100)
+
+    ficha_bruta = { "atributos": {sigla: 1 for sigla in ATRIBUTOS}, "talentos": [] }
+    pontos_totais -= 8 
+
+    lista_talentos = []
+    for attr, tals in TALENTOS_DB.items():
+        for t in tals:
+            lista_talentos.append({"nome": t, "pai": attr, "valor_bruto": 0})
+
+    while pontos_totais > 0:
+        tipo = "attr" if random.random() < 0.3 else "tal"
+
+        if tipo == "attr":
+            if foco_atributos and random.random() < 0.75:
+                escolha = random.choice(foco_atributos)
+            else:
+                escolha = random.choice(ATRIBUTOS)
+            ficha_bruta["atributos"][escolha] += 1
+            pontos_totais -= 1
+        else: 
+            talentos_da_classe = [t for t in lista_talentos if t['nome'] in foco_talentos]
+            if talentos_da_classe and random.random() < 0.75:
+                talento_alvo = random.choice(talentos_da_classe)
+            else:
+                talentos_do_arquetipo = [t for t in lista_talentos if t['pai'] in foco_atributos]
+                if talentos_do_arquetipo and random.random() < 0.5:
+                    talento_alvo = random.choice(talentos_do_arquetipo)
+                else:
+                    talento_alvo = random.choice(lista_talentos)
+            talento_alvo["valor_bruto"] += 1
+            pontos_totais -= 1
+
+    ficha_final = { "atributos": {}, "talentos": [] }
+
+    for sigla, pontos in ficha_bruta["atributos"].items():
+        ficha_final["atributos"][sigla] = calcular_rank_sistema(pontos)
+
+    for t in lista_talentos:
+        if t["valor_bruto"] > 0:
+            dados_rank = calcular_rank_sistema(t["valor_bruto"])
+            ficha_final["talentos"].append({
+                "nome": t["nome"], "pai": t["pai"],
+                "valor": dados_rank["valor"], "rank": dados_rank["rank"]
+            })
+            
+    rank_order = {r: i for i, r in enumerate(["F", "E", "D", "C", "B", "A", "S", "Z"])}
+    ficha_final["talentos"].sort(key=lambda x: (rank_order.get(x['rank'], -1), x['valor']), reverse=True)
+
+    return jsonify({
+        "nome": nome_customizado, 
+        "classe": classe_selecionada,     
+        "arquetipo": arquetipo_selecionado, 
+        "nivel": nivel,
+        "pontos_gastos": config_pontos.get(nivel, 100),
+        "ficha": ficha_final
+    })
 
 if __name__ == '__main__':
     criar_tabelas()
