@@ -6,7 +6,7 @@ import { useTheme } from "../../components/contexts/ThemeContext";
 import { useNotification } from "../../components/contexts/NotificationContext";
 import HabilidadeCard from "../../components/HabilidadeCard"; 
 
-// --- DADOS COMPLETOS E DETALHADOS (BASEADOS NO DOC) ---
+// --- DADOS COMPLETOS E DETALHADOS (ELEMENTAL DO AR) ---
 const TEXTOS_ELEMENTAL_AR: Record<string, any> = {
   "Sob Pressão": {
     tag: "Controle",
@@ -195,7 +195,7 @@ const TEXTOS_ELEMENTAL_AR: Record<string, any> = {
   },
   "Frenesi": {
     tag: "Foco",
-    descricaoGeral: "Ao escolher um inimigo como foco, o usuário entra em um estado de concentração predatória. O mundo se estreita até restar apenas o alvo. Dor, cansaço e distrações são empurrados para o fundo da mente. Cada movimento, cada decisão e cada impulso são moldados pelo instinto de eliminar aquela única ameaça. O Frenesi não busca vitória elegante — ele só termina com o fim do alvo.",
+    descricaoGeral: "Ao escolher um inimigo como foco, o usuário entra em um estado de concentração predatória. O mundo se estreita até restar apenas o alvo. Dor, cansaço e distrações são ignorados.",
     observacoes: "• Alvo Único: Não pode trocar de alvo enquanto ativo.\n• Cego: Não distingue aliados de inimigos se entrarem no caminho.\n• Imunidade: Imune a medo e charme, mas vulnerável a ilusões.",
     niveis: {
       1: {
@@ -210,7 +210,7 @@ const TEXTOS_ELEMENTAL_AR: Record<string, any> = {
       },
       3: {
         titulo: "Caçada Irreversível",
-        detalhes: "Anula possibilidade de recuo voluntário.\n• Ganha +3D20 pontos em um Talento à sua escolha, voltado à eliminação do alvo.\n• Duração: 1D20 turnos.\n• Não pode desistir ou agir defensivamente.",
+        detalhes: "Anula possibilidade de recuo voluntário.\n• Ganha +3D20 voltado à eliminação do alvo.\n• Duração: 1D20 turnos.\n• Não pode desistir ou agir defensivamente.",
         resumo: "+3D20 contra o alvo. Não pode recuar."
       },
       4: {
@@ -319,9 +319,12 @@ export default function GrimorioPage() {
   
   const [loading, setLoading] = useState(true);
   const [personagem, setPersonagem] = useState<any>(null);
-  
   const [magiasBackend, setMagiasBackend] = useState<any[]>([]);
+  
+  // Estado para Modal
   const [magiaSelecionada, setMagiaSelecionada] = useState<any>(null);
+  // Estado para Detalhes Padrão (Não-Elemental)
+  const [detalhesSimples, setDetalhesSimples] = useState<any>(null);
 
   useEffect(() => {
     carregarDados();
@@ -348,17 +351,13 @@ export default function GrimorioPage() {
 
   async function uparMagia(nomeMagia: string) {
     if (!personagem) return;
-    const magiaAtual = magiasBackend.find(m => m.nome === nomeMagia);
-    if (magiaAtual && magiaAtual.nivel >= 6) {
-        showNotification("Nível máximo (Ω) alcançado!", "erro");
-        return;
-    }
     try {
       const res = await fetch(`http://127.0.0.1:5000/habilidades/${personagem.id}/${nomeMagia}`, { method: "PUT" });
       if (res.status === 200 || res.status === 201) {
         showNotification(`✨ ${nomeMagia} evoluiu!`, "sucesso");
         carregarDados();
         setMagiaSelecionada(null); 
+        setDetalhesSimples(null);
       } else {
         const data = await res.json();
         showNotification(data.erro || "Erro.", "erro");
@@ -366,20 +365,12 @@ export default function GrimorioPage() {
     } catch (error) { showNotification("Erro de conexão.", "erro"); }
   }
 
-  function abrirDetalhes(nomeMagia: string, infoBase: any, nivelAtual: number) {
-      // Prepara os dados para o modal
+  // Preparar Modal Elemental
+  function abrirDetalhesElemental(nomeMagia: string, infoBase: any, nivelAtual: number) {
       let dadosNivelAtual = null;
       let resumoProximo = "Nível Máximo (Ω).";
-
-      // Pega dados do nível atual (se aprendido)
-      if (nivelAtual > 0) {
-          dadosNivelAtual = infoBase.niveis[nivelAtual];
-      }
-
-      // Pega resumo do próximo nível
-      if (nivelAtual < 6) {
-          resumoProximo = infoBase.niveis[nivelAtual + 1].resumo;
-      }
+      if (nivelAtual > 0 && infoBase.niveis[nivelAtual]) dadosNivelAtual = infoBase.niveis[nivelAtual];
+      if (nivelAtual < 6 && infoBase.niveis[nivelAtual + 1]) resumoProximo = infoBase.niveis[nivelAtual + 1].resumo;
 
       setMagiaSelecionada({
           nome: nomeMagia,
@@ -391,7 +382,8 @@ export default function GrimorioPage() {
   }
 
   if (loading) return <div className={`h-screen w-full ${theme.bg} flex items-center justify-center ${theme.text} font-mono text-2xl animate-pulse`}>Sintonizando Magia...</div>;
-  const isElementalAr = personagem?.classe === "Elemental do Ar";
+  
+  const isElementalAr = personagem?.classe?.includes("Elemental do Ar");
 
   return (
     <PageWrapper>
@@ -414,36 +406,41 @@ export default function GrimorioPage() {
           </div>
         </div>
 
+        {/* --- LAYOUT ELEMENTAL --- */}
         {isElementalAr ? (
             <div className="space-y-12">
-                {/* ATIVAS */}
                 <div>
                     <h2 className={`text-xl font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${theme.text}`}>
                         <span className="text-2xl">⚡</span> Habilidades Ativas
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {Object.entries(TEXTOS_ELEMENTAL_AR).map(([nomeMagia, info]) => {
+                        {Object.entries(TEXTOS_ELEMENTAL_AR).map(([nomeMagia, info]: any) => {
                             const magiaNoBanco = magiasBackend.find(m => m.nome === nomeMagia);
                             const nivelAtual = magiaNoBanco ? magiaNoBanco.nivel : 0;
-                            // Texto para o CARD (Usa o resumo para não ficar gigante)
-                            const textoCard = nivelAtual > 0 ? info.niveis[nivelAtual].resumo : "Habilidade Latente. Clique para detalhes.";
+                            const isInativo = magiaNoBanco && magiaNoBanco.is_active === false;
+
+                            const textoCard = nivelAtual > 0 ? info.niveis[nivelAtual]?.resumo : "Habilidade Latente.";
 
                             return (
-                                <div key={nomeMagia} className="h-full cursor-pointer" onClick={() => abrirDetalhes(nomeMagia, info, nivelAtual)}>
+                                <div key={nomeMagia} className={`h-full cursor-pointer relative ${isInativo ? 'opacity-50 grayscale' : ''}`} onClick={() => !isInativo && abrirDetalhesElemental(nomeMagia, info, nivelAtual)}>
+                                    {isInativo && (
+                                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 rounded-xl backdrop-blur-sm">
+                                            <span className="bg-red-900 text-white text-xs font-bold px-3 py-1 rounded border border-red-500 uppercase tracking-widest">🚫 Inativo</span>
+                                        </div>
+                                    )}
                                     <HabilidadeCard 
                                         nome={nomeMagia}
                                         nivel={nivelAtual}
                                         descricao={textoCard}
                                         tag={info.tag}
-                                        podeEvoluir={true} 
-                                        onEvolve={() => abrirDetalhes(nomeMagia, info, nivelAtual)} 
+                                        podeEvoluir={!isInativo} 
+                                        onEvolve={() => !isInativo && abrirDetalhesElemental(nomeMagia, info, nivelAtual)} 
                                     />
                                 </div>
                             );
                         })}
                     </div>
                 </div>
-
                 {/* PASSIVAS */}
                 <div>
                     <h2 className={`text-xl font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${theme.text}`}>
@@ -461,14 +458,52 @@ export default function GrimorioPage() {
                 </div>
             </div>
         ) : (
+            // --- LAYOUT PADRÃO (Ceifeiros, Ladinos, etc) ---
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                 {/* Lógica para outras classes se necessário */}
-                 <p className="opacity-50">Carregando grimório padrão...</p>
+                 {magiasBackend.length === 0 ? (
+                    <div className={`col-span-full text-center py-20 ${theme.panel} rounded-xl border-2 border-dashed ${theme.border} opacity-70`}>
+                        <p className="text-xl font-light">Seu grimório está vazio.</p>
+                        <p className="text-xs mt-2 opacity-50">Isso pode ocorrer se a classe não foi vinculada corretamente.</p>
+                    </div>
+                 ) : (
+                    magiasBackend.map((magia) => (
+                        <div 
+                            key={magia.id_vinculo} 
+                            onClick={() => !((magia as any).is_active === false) && setDetalhesSimples(magia)}
+                            className={`${theme.panel} p-5 rounded-xl border ${theme.border} shadow-lg hover:scale-[1.02] transition-transform flex flex-col justify-between cursor-pointer relative ${(magia as any).is_active === false ? 'opacity-50 grayscale pointer-events-none' : ''}`}
+                        >
+                             {(magia as any).is_active === false && (
+                                <div className="absolute top-2 right-2 z-10">
+                                    <span className="text-[10px] font-bold bg-red-900/80 text-white px-2 py-0.5 rounded border border-red-500 uppercase">🚫 Inativo</span>
+                                </div>
+                             )}
+                             <div>
+                                <div className="flex justify-between items-start gap-3 mb-3">
+                                    <h3 className={`text-xl font-bold leading-tight ${theme.text}`}>{magia.nome}</h3>
+                                    <span className="text-[10px] px-2 py-1 rounded border font-bold uppercase tracking-wider bg-black/40 text-white/80 border-white/10">
+                                        Nível {magia.nivel}
+                                    </span>
+                                </div>
+                                <p className={`text-sm mb-4 min-h-[40px] line-clamp-3 opacity-70 leading-relaxed`}>{magia.descricao}</p>
+                            </div>
+                            <div className="flex justify-between items-center mt-4 border-t border-current/10 pt-4">
+                                <span className="text-[10px] font-black uppercase tracking-widest opacity-50 px-2 py-1 rounded bg-current/5">{magia.tipo}</span>
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); uparMagia(magia.nome); }}
+                                    disabled={(magia as any).is_active === false}
+                                    className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white px-5 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wide z-10 disabled:opacity-0"
+                                >
+                                    <span>Evoluir</span>
+                                </button>
+                            </div>
+                        </div>
+                    ))
+                 )}
             </div>
         )}
       </div>
 
-      {/* --- MODAL DETALHADO (VERSÃO FINAL) --- */}
+      {/* --- MODAL DETALHES ELEMENTAL --- */}
       {magiaSelecionada && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50 backdrop-blur-sm animate-in fade-in" onClick={() => setMagiaSelecionada(null)}>
             <div className={`${theme.panel} p-0 rounded-2xl max-w-2xl w-full border border-white/20 shadow-2xl relative overflow-hidden`} onClick={(e) => e.stopPropagation()}>
@@ -539,7 +574,6 @@ export default function GrimorioPage() {
                             </p>
                         </div>
                     )}
-
                 </div>
 
                 {/* RODAPÉ */}
@@ -555,6 +589,26 @@ export default function GrimorioPage() {
                     )}
                 </div>
 
+            </div>
+        </div>
+      )}
+
+      {/* --- MODAL DETALHES SIMPLES (Ceifeiros, etc) --- */}
+      {detalhesSimples && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm animate-in fade-in" onClick={() => setDetalhesSimples(null)}>
+            <div className={`${theme.panel} p-8 rounded-2xl max-w-2xl w-full border-2 ${theme.border} shadow-2xl relative`} onClick={(e) => e.stopPropagation()}>
+                <h2 className={`text-3xl font-black uppercase ${theme.primary} mb-4`}>{detalhesSimples.nome}</h2>
+                <p className="text-lg italic opacity-90 border-l-4 pl-4 py-1 mb-6">{detalhesSimples.descricao}</p>
+                {detalhesSimples.detalhes && (
+                    <div className="bg-black/5 p-6 rounded-xl border border-current/10">
+                        <h3 className="text-xs font-black opacity-50 uppercase tracking-widest mb-4">📜 Detalhes</h3>
+                        <div className="text-sm opacity-90 whitespace-pre-wrap">{detalhesSimples.detalhes}</div>
+                    </div>
+                )}
+                <div className="mt-8 text-right flex gap-3 justify-end">
+                    <button onClick={() => setDetalhesSimples(null)} className={`px-6 py-3 rounded-xl font-bold border border-white/10 hover:bg-white/5`}>Fechar</button>
+                    <button onClick={() => uparMagia(detalhesSimples.nome)} className={`px-8 py-3 rounded-xl font-bold text-white bg-gradient-to-r ${theme.button}`}>EVOLUIR</button>
+                </div>
             </div>
         </div>
       )}

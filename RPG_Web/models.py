@@ -102,12 +102,12 @@ class Magia(db.Model):
 
 class MagiaAprendida(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    personagem_id = db.Column(db.Integer, db.ForeignKey('personagem.id'))
+    magia_id = db.Column(db.Integer, db.ForeignKey('magia.id'))
     nivel = db.Column(db.Integer, default=1)
-    ativa = db.Column(db.Boolean, default=True)
     
-    personagem_id = db.Column(db.Integer, db.ForeignKey('personagem.id'), nullable=False)
-    magia_id = db.Column(db.Integer, db.ForeignKey('magia.id'), nullable=False)
-    
+    is_active = db.Column(db.Boolean, default=True) # True = Ativa, False = Inativa/Perdida
+
     info_magia = db.relationship('Magia')
 
     def to_dict(self):
@@ -118,7 +118,7 @@ class MagiaAprendida(db.Model):
             "detalhes": self.info_magia.detalhes, 
             "nivel": self.nivel,
             "tipo": self.info_magia.tipo,
-            "ativa": self.ativa
+            "is_active": self.is_active
         }
 
 # --- 5. DEFINIÇÕES DO SISTEMA (Regras Novas) ---

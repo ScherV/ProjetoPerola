@@ -253,31 +253,54 @@ export default function Home() {
         {/* --- COLUNA 1 (ESQUERDA) --- */}
         <div className="flex flex-col gap-6 w-full h-full">
             
-            {/* PAINEL DE NAVEGAÇÃO */}
-            <section className={`transition-all duration-500 w-full shrink-0`}>
-              <div className={`${theme.panel} backdrop-blur-md p-6 rounded-xl border ${theme.border} shadow-xl`}>
-                <div className="flex items-center gap-3 mb-5 border-b border-current/10 pb-3">
-                    <span className="text-2xl">{isMaster ? "🛡️" : "⚔️"}</span>
-                    <h2 className={`text-xl font-black uppercase tracking-wider ${theme.primary}`}>
-                        {isMaster ? "Mestre" : "Jogador"}
-                    </h2>
+{/* PAINEL DE NAVEGAÇÃO */}
+<section className={`transition-all duration-500 w-full shrink-0`}>
+  <div className={`${theme.panel} backdrop-blur-md p-6 rounded-xl border ${theme.border} shadow-xl`}>
+    <div className="flex items-center gap-3 mb-5 border-b border-current/10 pb-3">
+        <span className="text-2xl">{isMaster ? "🛡️" : "⚔️"}</span>
+        <h2 className={`text-xl font-black uppercase tracking-wider ${theme.primary}`}>
+            {isMaster ? "Painel do Mestre" : "Jogador"}
+        </h2>
+    </div>
+    <div className="grid grid-cols-1 gap-3">
+        {!isMaster ? (
+            <>
+            <button onClick={() => router.push("/ficha")} className="group p-4 bg-black/10 hover:bg-black/20 rounded-lg text-left border-l-4 border-blue-500 transition-all hover:translate-x-1"><h3 className="font-bold group-hover:text-blue-500 transition-colors">Minha Ficha</h3><p className={`text-xs opacity-60 ${theme.textMuted}`}>Status, Biografia e Atributos</p></button>
+            <button onClick={() => router.push("/mapas")} className="group p-4 bg-black/10 hover:bg-black/20 rounded-lg text-left border-l-4 border-yellow-500 transition-all hover:translate-x-1"><h3 className="font-bold group-hover:text-yellow-500 transition-colors">Mapas</h3><p className={`text-xs opacity-60 ${theme.textMuted}`}>Locais descobertos</p></button>
+            </>
+        ) : (
+            <>
+            {/* BOTÃO 1: GERENCIAR FICHAS (Edição Livre) */}
+            <button onClick={() => router.push("/mestre/fichas")} className="group p-4 bg-black/10 hover:bg-black/20 rounded-lg text-left border-l-4 border-purple-500 transition-all hover:translate-x-1 flex justify-between items-center">
+                <div>
+                    <h3 className="font-bold group-hover:text-purple-500 transition-colors">Gerenciar Fichas</h3>
+                    <p className={`text-xs opacity-60 ${theme.textMuted}`}>Editar Players e NPCs livremente</p>
                 </div>
-                <div className="grid grid-cols-1 gap-3">
-                    {!isMaster ? (
-                        <>
-                        <button onClick={() => router.push("/ficha")} className="group p-4 bg-black/10 hover:bg-black/20 rounded-lg text-left border-l-4 border-blue-500 transition-all hover:translate-x-1"><h3 className="font-bold group-hover:text-blue-500 transition-colors">Minha Ficha</h3><p className={`text-xs opacity-60 ${theme.textMuted}`}>Status, Biografia e Atributos</p></button>
-                        {/* Botão Grimório Removido */}
-                        <button onClick={() => router.push("/mapas")} className="group p-4 bg-black/10 hover:bg-black/20 rounded-lg text-left border-l-4 border-yellow-500 transition-all hover:translate-x-1"><h3 className="font-bold group-hover:text-yellow-500 transition-colors">Mapas</h3><p className={`text-xs opacity-60 ${theme.textMuted}`}>Locais descobertos</p></button>
-                        </>
-                    ) : (
-                        <>
-                        <button onClick={() => router.push("/mestre")} className="group p-4 bg-black/10 hover:bg-black/20 rounded-lg text-left border-l-4 border-purple-500 transition-all hover:translate-x-1"><h3 className="font-bold group-hover:text-purple-500 transition-colors">Todas as Fichas</h3></button>
-                        <button onClick={() => router.push("/mapas")} className="group p-4 bg-black/10 hover:bg-black/20 rounded-lg text-left border-l-4 border-yellow-500 transition-all hover:translate-x-1"><h3 className="font-bold group-hover:text-yellow-500 transition-colors">Mapas</h3></button>
-                        </>
-                    )}
+                <span className="text-2xl">👥</span>
+            </button>
+
+            {/* BOTÃO 2: GERADOR DE NPC */}
+            <button onClick={() => router.push("/mestre/npc-generator")} className="group p-4 bg-black/10 hover:bg-black/20 rounded-lg text-left border-l-4 border-red-500 transition-all hover:translate-x-1 flex justify-between items-center">
+                <div>
+                    <h3 className="font-bold group-hover:text-red-500 transition-colors">Gerador de NPC</h3>
+                    <p className={`text-xs opacity-60 ${theme.textMuted}`}>Criar inimigos rápidos</p>
                 </div>
-              </div>
-            </section>
+                <span className="text-2xl">👹</span>
+            </button>
+
+            {/* BOTÃO 3: MAPAS */}
+            <button onClick={() => router.push("/mapas")} className="group p-4 bg-black/10 hover:bg-black/20 rounded-lg text-left border-l-4 border-yellow-500 transition-all hover:translate-x-1 flex justify-between items-center">
+                <div>
+                    <h3 className="font-bold group-hover:text-yellow-500 transition-colors">Mapas</h3>
+                    <p className={`text-xs opacity-60 ${theme.textMuted}`}>Gerenciar locais</p>
+                </div>
+                <span className="text-2xl">🗺️</span>
+            </button>
+            </>
+        )}
+    </div>
+  </div>
+</section>
 
             {/* ANOTAÇÕES */}
             {hasCharacter && (
