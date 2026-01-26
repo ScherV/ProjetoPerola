@@ -19,6 +19,7 @@ export default function FichaPage() {
   
   // --- NOVOS ESTADOS PARA A CRIAÇÃO ---
   const [nomeChar, setNomeChar] = useState("");
+  const [terraNatal, setTerraNatal] = useState(""); // <--- NOVO ESTADO
   const [historiaChar, setHistoriaChar] = useState("");
   const [origem, setOrigem] = useState<"mandriosa" | "elemental" | "personalizado">("mandriosa");
   
@@ -56,7 +57,7 @@ export default function FichaPage() {
       const resClasses = await fetch("http://127.0.0.1:5000/classes");
       if (resClasses.ok) {
         const todasClasses = await resClasses.json();
-        // AQUI ESTÁ A MÁGICA: Filtramos apenas as classes oficiais da Cúpula
+        // Filtramos apenas as classes oficiais da Cúpula
         const classesMandriosa = todasClasses.filter((c: any) => 
             ["Ceifeiro", "Ladino", "Alquimista"].includes(c.nome)
         );
@@ -101,7 +102,6 @@ export default function FichaPage() {
     else if (origem === "elemental") {
         if (!elementoSelecionado) { showNotification("Escolha seu Elemento!", "erro"); return; }
         classeFinal = null; // Backend resolve
-        // Limpa o nome do elemento (remove emojis se houver)
         const elemLimpo = elementoSelecionado.split(" ")[0]; 
         origemFinal = `Elemental de ${elemLimpo}`;
         elementoFinal = elemLimpo;
@@ -121,6 +121,7 @@ export default function FichaPage() {
         body: JSON.stringify({
           user_id: userId,
           nome: nomeChar,
+          terra_natal: terraNatal, // <--- ENVIO DO NOVO CAMPO
           historia: historiaCompleta,
           tipo_origem: origem,
           classe_id: classeFinal,
@@ -182,6 +183,12 @@ export default function FichaPage() {
                     <div className="flex flex-col md:flex-row justify-between items-center md:items-start">
                         <div>
                             <h2 className={`text-5xl font-black tracking-tight drop-shadow-lg ${theme.text}`}>{personagem.nome}</h2>
+                            
+                            {/* --- EXIBIÇÃO DA TERRA NATAL --- */}
+                            <p className="text-lg italic opacity-60 font-serif mb-2 border-b border-white/5 pb-2 inline-block">
+                                {personagem.terra_natal || "De terras desconhecidas..."}
+                            </p>
+
                             <p className={`text-xl font-mono uppercase tracking-widest mt-1 flex items-center justify-center md:justify-start gap-2 ${theme.primary}`}>
                                 <span className={`w-2 h-2 rounded-full ${theme.bgAttr || 'bg-white'}`}></span>
                                 {personagem.classe}
@@ -226,6 +233,17 @@ export default function FichaPage() {
               <div>
                 <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${theme.primary}`}>Nome do Personagem</label>
                 <input required value={nomeChar} onChange={e => setNomeChar(e.target.value)} className="w-full p-4 rounded-xl bg-black/30 border border-white/10 focus:border-current outline-none transition-all text-white font-bold text-lg" placeholder="Ex: Gandalf" />
+              </div>
+
+              {/* --- CAMPO NOVO: TERRA NATAL --- */}
+              <div>
+                <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${theme.primary}`}>Terra Natal / Origem</label>
+                <input 
+                    value={terraNatal} 
+                    onChange={e => setTerraNatal(e.target.value)} 
+                    className="w-full p-4 rounded-xl bg-black/30 border border-white/10 focus:border-current outline-none transition-all text-white font-bold text-sm" 
+                    placeholder="Ex: Nascido na vila sem nome" 
+                />
               </div>
 
               {/* ABAS DE ORIGEM */}

@@ -14,6 +14,78 @@ const BONUS_RANK_ATRIBUTO: Record<string, number> = {
   "-": 0, "F": 2, "E": 4, "D": 6, "C": 8, "B": 10, "A": 12, "S": 15, "Z": 20
 };
 
+// --- ÍCONES DE DADOS (SVG GEOMÉTRICOS) ---
+
+const IconD4 = () => (
+  <svg viewBox="0 0 24 24" className="w-10 h-10 stroke-current fill-none stroke-2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2L2 22h20L12 2z" />
+    <path d="M12 2v13.5l8.5 6.5" opacity="0.5" /> 
+    <path d="M12 15.5L3.5 22" opacity="0.5" />
+  </svg>
+);
+
+// D6 ATUALIZADO: CUBO 3D
+const IconD6 = () => (
+  <svg viewBox="0 0 24 24" className="w-10 h-10 stroke-current fill-none stroke-2" strokeLinecap="round" strokeLinejoin="round">
+    {/* Contorno Hexagonal (Silhueta do Cubo) */}
+    <path d="M21 16.5L12 21.5L3 16.5V7.5L12 2.5L21 7.5V16.5Z" />
+    {/* Y Interno (Divisão das Faces) */}
+    <path d="M3 7.5L12 12.5L21 7.5" />
+    <path d="M12 12.5V21.5" />
+  </svg>
+);
+
+const IconD8 = () => (
+  <svg viewBox="0 0 24 24" className="w-10 h-10 stroke-current fill-none stroke-2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2L2 12l10 10 10-10L12 2z" />
+    <path d="M12 2v20" />
+    <path d="M2 12h20" />
+  </svg>
+);
+
+const IconD10 = () => (
+  <svg viewBox="0 0 24 24" className="w-10 h-10 stroke-current fill-none stroke-2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2L2 8l10 14 10-14L12 2z" />
+    <path d="M2 8l10 6 10-6" />
+    <path d="M12 2v20" />
+  </svg>
+);
+
+const IconD12 = () => (
+  <svg viewBox="0 0 24 24" className="w-10 h-10 stroke-current fill-none stroke-2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 8.5 L8.5 11 L9.8 15 L14.2 15 L15.5 11 Z" />
+      <path d="M12 2 L12 8.5" />
+      <path d="M2 9 L8.5 11" />
+      <path d="M5 20 L9.8 15" />
+      <path d="M19 20 L14.2 15" />
+      <path d="M22 9 L15.5 11" />
+      <path d="M12 2 L2 9 L5 20 L19 20 L22 9 Z" />
+  </svg>
+);
+
+const IconD20 = () => (
+  <svg viewBox="0 0 24 24" className="w-10 h-10 stroke-current fill-none stroke-2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2 L3 7 L3 17 L12 22 L21 17 L21 7 Z" />
+    <path d="M12 12 L12 2" /> 
+    <path d="M12 12 L3 7" />  
+    <path d="M12 12 L21 7" /> 
+    <path d="M12 12 L3 17" /> 
+    <path d="M12 12 L21 17" />
+    <path d="M3 17 L12 22 L21 17" />
+  </svg>
+);
+
+const IconD100 = () => (
+  <svg viewBox="0 0 24 24" className="w-10 h-10 stroke-current fill-none" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M8 5 L3 9 L8 19 L13 9 L8 5 Z" strokeWidth="1.5" />
+    <path d="M3 9 L13 9" strokeWidth="1" opacity="0.5" />
+    <path d="M18 5 L13 9 L18 19 L23 9 L18 5 Z" strokeWidth="1.5" />
+    <path d="M13 9 L23 9" strokeWidth="1" opacity="0.5" />
+    <text x="13" y="15" textAnchor="middle" fontSize="8" stroke="none" fill="currentColor" fontWeight="bold">%</text>
+  </svg>
+);
+
+
 export default function Home() {
   const router = useRouter();
   const { theme } = useTheme();
@@ -25,9 +97,9 @@ export default function Home() {
   const [personagem, setPersonagem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Dados do Rolador
-  const [qtd, setQtd] = useState(1);
-  const [faces, setFaces] = useState(20);
+  // --- NOVO ESTADO DE DADOS (POOL) ---
+  const [dicePool, setDicePool] = useState<Record<number, number>>({ 20: 1 }); 
+  
   const [bonusManual, setBonusManual] = useState(0);
   const [talentoSelecionado, setTalentoSelecionado] = useState("");
   const [bonusCalculado, setBonusCalculado] = useState(0);
@@ -78,6 +150,22 @@ export default function Home() {
       setLoading(false);
   }
 
+  // Funções de manipulação do Pool de Dados
+  const addDie = (faces: number) => {
+    setDicePool(prev => ({ ...prev, [faces]: (prev[faces] || 0) + 1 }));
+  };
+  
+  const removeDie = (faces: number) => {
+    setDicePool(prev => {
+      const novo = { ...prev };
+      if (novo[faces] > 1) novo[faces]--;
+      else delete novo[faces];
+      return novo;
+    });
+  };
+
+  const clearPool = () => setDicePool({ 20: 1 });
+
   // --- CÁLCULO DE BÔNUS ---
   useEffect(() => {
     if (talentoSelecionado === "" || !personagem) {
@@ -100,16 +188,20 @@ export default function Home() {
 
   // --- LÓGICA DO DADO ---
   async function rolarDado(isExplosao = false) {
+    const poolArray = Object.entries(dicePool).map(([faces, qtd]) => ({
+        faces: Number(faces),
+        qtd: qtd
+    }));
+
     try {
       const bonusDaVez = isExplosao ? 0 : bonusCalculado;
       
       const response = await fetch("http://127.0.0.1:5000/rolar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ qtd: Number(qtd), faces: Number(faces), bonus: bonusDaVez }),
+        body: JSON.stringify({ pool: poolArray, bonus: bonusDaVez }),
       });
       const data = await response.json();
-      const valorDado = data.rolagensIndividuais[0]; 
 
       if (!isExplosao) {
           setModoExplosao(false);
@@ -119,67 +211,51 @@ export default function Home() {
           setSomaAcumulada(0);
       }
 
-      if (Number(faces) === 20) {
-          // --- 1. PRIMEIRO CRÍTICO (20) ---
-          if (valorDado === 20 && !isExplosao) {
+      if (data.temD20) {
+          if (data.critico && !isExplosao) {
               setModoExplosao(true);
               setComboCritico(1);
-              
-              // REGRA: O primeiro 20 vale 10 + Bônus
-              const valorRegraCasa = 10 + bonusCalculado;
-              setSomaAcumulada(valorRegraCasa); 
-              
+              setSomaAcumulada(data.totalFinal); 
               setResultado({...data, totalFinal: "CRÍTICO!"});
               showNotification("🔥 CRÍTICO! Escolha: Abrir (+1 dado) ou Guardar?", "sucesso");
               return;
           } 
           
-          // --- 2. EXPLOSÃO (Abrir Dado) ---
           if (isExplosao) {
-              if (valorDado === 20) {
-                  // --- TIROU OUTRO 20! ---
+              const d20Detail = data.detalhes.find((d: any) => d.dado === "D20");
+              const valorD20Real = d20Detail ? d20Detail.rolagens[0] : 0;
+
+              if (valorD20Real === 20) {
                   const novoCombo = comboCritico + 1;
                   setComboCritico(novoCombo);
                   
-                  // Se for o 3º Crítico -> MILAGRE
                   if (novoCombo >= 3) {
                       setModoExplosao(false); 
                       setIsMilagre(true);
-                      
-                      // Conta: Acumulado + 20
                       const valorFinalMilagre = somaAcumulada + 20; 
-                      
                       setResultado({...data, totalFinal: valorFinalMilagre});
                       showNotification("✨ MILAGRE (Total +50)! O IMPOSSÍVEL ACONTECEU!", "sucesso");
                       return;
                   }
 
-                  // Se for o 2º Crítico -> Soma +20
-                  setSomaAcumulada(prev => prev + 20); 
+                  setSomaAcumulada(prev => prev + data.somaDados); 
                   setModoExplosao(true);
-                  
                   setResultado({...data, totalFinal: `DUPLO 20!`});
                   showNotification(`😱 DUPLO CRÍTICO! AGORA É TUDO OU NADA!`, "sucesso");
                   return;
 
               } else {
-                  // --- TIROU NÚMERO NORMAL (Fim da Explosão) ---
                   setModoExplosao(false);
-                  
-                  // Soma: Acumulado + Valor do Dado
-                  const valorFinal = somaAcumulada + valorDado;
-                  
+                  const valorFinal = somaAcumulada + data.somaDados;
                   setResultado({...data, totalFinal: valorFinal});
                   showNotification(`💥 Ciclo encerrado! Resultado Final: ${valorFinal}`, "sucesso");
-                  
                   setSomaAcumulada(0);
                   setComboCritico(0);
                   return;
               }
           }
 
-          // --- 3. FALHA CRÍTICA (1) ---
-          if (valorDado === 1 && !isExplosao) {
+          if (data.falhaCritica && !isExplosao) {
               setModoFalha(true);
               setResultado({...data, totalFinal: "FALHA!"});
               showNotification("💀 FALHA CRÍTICA! Aceitar destino ou Guardar Maldição?", "erro");
@@ -187,7 +263,6 @@ export default function Home() {
           }
       }
       
-      // ROLAGEM NORMAL
       setResultado(data);
       
     } catch (error) { console.error("Erro:", error); }
@@ -230,6 +305,7 @@ export default function Home() {
       setSomaAcumulada(0);
       setComboCritico(0);
       setResultado(null);
+      clearPool();
       carregarPersonagem(localStorage.getItem("user_id") || "");
   }
 
@@ -253,54 +329,38 @@ export default function Home() {
         {/* --- COLUNA 1 (ESQUERDA) --- */}
         <div className="flex flex-col gap-6 w-full h-full">
             
-{/* PAINEL DE NAVEGAÇÃO */}
-<section className={`transition-all duration-500 w-full shrink-0`}>
-  <div className={`${theme.panel} backdrop-blur-md p-6 rounded-xl border ${theme.border} shadow-xl`}>
-    <div className="flex items-center gap-3 mb-5 border-b border-current/10 pb-3">
-        <span className="text-2xl">{isMaster ? "🛡️" : "⚔️"}</span>
-        <h2 className={`text-xl font-black uppercase tracking-wider ${theme.primary}`}>
-            {isMaster ? "Painel do Mestre" : "Jogador"}
-        </h2>
-    </div>
-    <div className="grid grid-cols-1 gap-3">
-        {!isMaster ? (
-            <>
-            <button onClick={() => router.push("/ficha")} className="group p-4 bg-black/10 hover:bg-black/20 rounded-lg text-left border-l-4 border-blue-500 transition-all hover:translate-x-1"><h3 className="font-bold group-hover:text-blue-500 transition-colors">Minha Ficha</h3><p className={`text-xs opacity-60 ${theme.textMuted}`}>Status, Biografia e Atributos</p></button>
-            <button onClick={() => router.push("/mapas")} className="group p-4 bg-black/10 hover:bg-black/20 rounded-lg text-left border-l-4 border-yellow-500 transition-all hover:translate-x-1"><h3 className="font-bold group-hover:text-yellow-500 transition-colors">Mapas</h3><p className={`text-xs opacity-60 ${theme.textMuted}`}>Locais descobertos</p></button>
-            </>
-        ) : (
-            <>
-            {/* BOTÃO 1: GERENCIAR FICHAS (Edição Livre) */}
-            <button onClick={() => router.push("/mestre/fichas")} className="group p-4 bg-black/10 hover:bg-black/20 rounded-lg text-left border-l-4 border-purple-500 transition-all hover:translate-x-1 flex justify-between items-center">
-                <div>
-                    <h3 className="font-bold group-hover:text-purple-500 transition-colors">Gerenciar Fichas</h3>
-                    <p className={`text-xs opacity-60 ${theme.textMuted}`}>Editar Players e NPCs livremente</p>
+            {/* PAINEL DE NAVEGAÇÃO */}
+            <section className={`transition-all duration-500 w-full shrink-0`}>
+              <div className={`${theme.panel} backdrop-blur-md p-6 rounded-xl border ${theme.border} shadow-xl`}>
+                <div className="flex items-center gap-3 mb-5 border-b border-current/10 pb-3">
+                    <span className="text-2xl">{isMaster ? "🛡️" : "⚔️"}</span>
+                    <h2 className={`text-xl font-black uppercase tracking-wider ${theme.primary}`}>
+                        {isMaster ? "Painel do Mestre" : "Jogador"}
+                    </h2>
                 </div>
-                <span className="text-2xl">👥</span>
-            </button>
-
-            {/* BOTÃO 2: GERADOR DE NPC */}
-            <button onClick={() => router.push("/mestre/npc-generator")} className="group p-4 bg-black/10 hover:bg-black/20 rounded-lg text-left border-l-4 border-red-500 transition-all hover:translate-x-1 flex justify-between items-center">
-                <div>
-                    <h3 className="font-bold group-hover:text-red-500 transition-colors">Gerador de NPC</h3>
-                    <p className={`text-xs opacity-60 ${theme.textMuted}`}>Criar inimigos rápidos</p>
+                <div className="grid grid-cols-1 gap-3">
+                    {!isMaster ? (
+                        <>
+                        <button onClick={() => router.push("/ficha")} className="group p-4 bg-black/10 hover:bg-black/20 rounded-lg text-left border-l-4 border-blue-500 transition-all hover:translate-x-1"><h3 className="font-bold group-hover:text-blue-500 transition-colors">Minha Ficha</h3><p className={`text-xs opacity-60 ${theme.textMuted}`}>Status, Biografia e Atributos</p></button>
+                        <button onClick={() => router.push("/mapas")} className="group p-4 bg-black/10 hover:bg-black/20 rounded-lg text-left border-l-4 border-yellow-500 transition-all hover:translate-x-1"><h3 className="font-bold group-hover:text-yellow-500 transition-colors">Mapas</h3><p className={`text-xs opacity-60 ${theme.textMuted}`}>Locais descobertos</p></button>
+                        </>
+                    ) : (
+                        <>
+                        {/* MENU MESTRE */}
+                        <button onClick={() => router.push("/mestre/fichas")} className="group p-4 bg-black/10 hover:bg-black/20 rounded-lg text-left border-l-4 border-purple-500 transition-all hover:translate-x-1 flex justify-between items-center">
+                            <div><h3 className="font-bold group-hover:text-purple-500 transition-colors">Gerenciar Fichas</h3><p className={`text-xs opacity-60 ${theme.textMuted}`}>Editar Players e NPCs</p></div><span className="text-2xl">👥</span>
+                        </button>
+                        <button onClick={() => router.push("/mestre/npc")} className="group p-4 bg-black/10 hover:bg-black/20 rounded-lg text-left border-l-4 border-red-500 transition-all hover:translate-x-1 flex justify-between items-center">
+                            <div><h3 className="font-bold group-hover:text-red-500 transition-colors">Gerador de NPC</h3><p className={`text-xs opacity-60 ${theme.textMuted}`}>Criar inimigos rápidos</p></div><span className="text-2xl">👹</span>
+                        </button>
+                        <button onClick={() => router.push("/mapas")} className="group p-4 bg-black/10 hover:bg-black/20 rounded-lg text-left border-l-4 border-yellow-500 transition-all hover:translate-x-1 flex justify-between items-center">
+                            <div><h3 className="font-bold group-hover:text-yellow-500 transition-colors">Mapas</h3><p className={`text-xs opacity-60 ${theme.textMuted}`}>Gerenciar locais</p></div><span className="text-2xl">🗺️</span>
+                        </button>
+                        </>
+                    )}
                 </div>
-                <span className="text-2xl">👹</span>
-            </button>
-
-            {/* BOTÃO 3: MAPAS */}
-            <button onClick={() => router.push("/mapas")} className="group p-4 bg-black/10 hover:bg-black/20 rounded-lg text-left border-l-4 border-yellow-500 transition-all hover:translate-x-1 flex justify-between items-center">
-                <div>
-                    <h3 className="font-bold group-hover:text-yellow-500 transition-colors">Mapas</h3>
-                    <p className={`text-xs opacity-60 ${theme.textMuted}`}>Gerenciar locais</p>
-                </div>
-                <span className="text-2xl">🗺️</span>
-            </button>
-            </>
-        )}
-    </div>
-  </div>
-</section>
+              </div>
+            </section>
 
             {/* ANOTAÇÕES */}
             {hasCharacter && (
@@ -340,20 +400,79 @@ export default function Home() {
                         {isMilagre ? "✨" : modoExplosao ? "🔥" : modoFalha ? "💀" : "🎲"}
                     </span>
                     <h2 className={`text-xl font-black uppercase tracking-wider ${theme.primary}`}>
-                        {isMilagre ? "MILAGRE" : "Dados"}
+                        {isMilagre ? "MILAGRE" : "Mesa de Dados"}
                     </h2>
+                    {/* Botão Limpar */}
+                    {!modoExplosao && !modoFalha && !isMilagre && (
+                        <button onClick={clearPool} className="ml-auto text-[10px] opacity-50 hover:opacity-100 hover:text-red-400 font-bold uppercase transition-colors border border-white/20 px-2 py-1 rounded">
+                            Limpar
+                        </button>
+                    )}
                 </div>
                 
-                {/* SELETOR DE TALENTO */}
+                {/* 1. SELETOR DE DADOS (GRID) */}
                 {!modoExplosao && !modoFalha && !isMilagre && (
-                    <div className="mb-4">
-                        <label className={`text-[10px] font-bold uppercase mb-1 block opacity-80`}>Usar Talento</label>
+                <div className="grid grid-cols-4 sm:grid-cols-7 gap-2 mb-6">
+                    {[4, 6, 8, 10, 12, 20, 100].map(face => (
+                        <button 
+                            key={face} 
+                            onClick={() => addDie(face)}
+                            className="flex flex-col items-center justify-center p-2 rounded-lg bg-black/20 hover:bg-white/10 border border-transparent hover:border-white/20 transition-all group active:scale-95"
+                        >
+                            <div className={`transition-transform duration-300 opacity-70 group-hover:opacity-100 group-hover:text-${face === 20 ? 'yellow-400' : 'white'}`}>
+                                {face === 4 && <IconD4 />}
+                                {face === 6 && <IconD6 />}
+                                {face === 8 && <IconD8 />}
+                                {face === 10 && <IconD10 />}
+                                {face === 12 && <IconD12 />}
+                                {face === 20 && <IconD20 />}
+                                {face === 100 && <IconD100 />}
+                            </div>
+                            <span className="text-[10px] font-bold mt-1 opacity-50">D{face}</span>
+                        </button>
+                    ))}
+                </div>
+                )}
+
+                {/* 2. POOL ATUAL (BANDEJA) */}
+                {!modoExplosao && !modoFalha && !isMilagre && (
+                <div className="bg-black/30 p-4 rounded-xl border border-white/5 mb-6 min-h-[80px] flex flex-wrap gap-3 items-center justify-center relative">
+                    {Object.keys(dicePool).length === 0 && <span className="opacity-30 text-sm italic">Toque nos dados acima para adicionar...</span>}
+                    
+                    {Object.entries(dicePool).map(([faces, qtd]) => (
+                        <div key={faces} className="flex items-center gap-2 bg-white/5 px-3 py-2 rounded-lg border border-white/10 animate-in zoom-in duration-200">
+                            <span className={`font-bold text-lg ${Number(faces) === 20 ? 'text-yellow-500' : 'text-white'}`}>
+                                {qtd}d{faces}
+                            </span>
+                            <div className="flex flex-col gap-0.5 ml-2">
+                                <button onClick={() => addDie(Number(faces))} className="w-4 h-4 flex items-center justify-center bg-white/10 hover:bg-green-500 rounded text-[8px]">+</button>
+                                <button onClick={() => removeDie(Number(faces))} className="w-4 h-4 flex items-center justify-center bg-white/10 hover:bg-red-500 rounded text-[8px]">-</button>
+                            </div>
+                        </div>
+                    ))}
+                    
+                    {/* BÔNUS MANUAL */}
+                    <div className="flex items-center gap-2 ml-2 border-l border-white/10 pl-4">
+                        <span className="text-xs font-bold opacity-50 uppercase">Bônus</span>
+                        <input 
+                            type="number" 
+                            value={bonusCalculado} 
+                            onChange={(e) => { setBonusManual(Number(e.target.value)); setTalentoSelecionado(""); }} 
+                            className={`w-14 p-1 rounded bg-black/20 border border-white/10 text-center font-bold outline-none focus:border-white/50 transition-colors ${theme.text}`}
+                        />
+                    </div>
+                </div>
+                )}
+
+                {/* 3. SELETOR DE TALENTO */}
+                {!modoExplosao && !modoFalha && !isMilagre && (
+                    <div className="mb-6">
                         <select 
                             value={talentoSelecionado}
                             onChange={(e) => setTalentoSelecionado(e.target.value)}
-                            className={`w-full p-3 rounded-xl bg-black/10 border border-current/10 text-current/90 focus:border-current outline-none transition-all cursor-pointer`}
+                            className={`w-full p-3 rounded-xl bg-black/10 border border-current/10 text-current/90 focus:border-current outline-none transition-all cursor-pointer text-sm`}
                         >
-                            <option value="" className="text-black font-bold">Manual (Digitar Bônus)</option>
+                            <option value="" className="text-black font-bold">-- Selecionar Talento (Opcional) --</option>
                             <optgroup label="Meus Talentos" className="text-black font-bold">
                                 {personagem?.talentos?.map((t: any) => (
                                     <option key={t.id_vinculo} value={t.id_vinculo} className="text-black font-normal">
@@ -365,20 +484,16 @@ export default function Home() {
                     </div>
                 )}
 
-                {/* INPUTS */}
-                <div className="flex gap-2 mb-6 justify-center">
-                  <div className="flex flex-col items-center"><span className={`text-[9px] font-bold uppercase mb-1 opacity-80`}>Qtd</span><input type="number" value={qtd} onChange={(e) => setQtd(Number(e.target.value))} className={`w-16 p-2 rounded-lg bg-black/10 border border-current/20 text-center text-xl font-bold outline-none ${theme.text}`} disabled={modoExplosao || modoFalha || isMilagre} /></div>
-                  <span className="self-center text-xl font-bold opacity-30 mt-4">d</span>
-                  <div className="flex flex-col items-center"><span className={`text-[9px] font-bold uppercase mb-1 opacity-80`}>Faces</span><input type="number" value={faces} onChange={(e) => setFaces(Number(e.target.value))} className={`w-16 p-2 rounded-lg bg-black/10 border border-current/20 text-center text-xl font-bold outline-none ${theme.text}`} disabled={modoExplosao || modoFalha || isMilagre} /></div>
-                  <span className="self-center text-xl font-bold opacity-30 mt-4">+</span>
-                  <div className="flex flex-col items-center"><span className={`text-[9px] font-bold uppercase mb-1 opacity-80`}>Bônus</span><input type="number" value={bonusCalculado} onChange={(e) => { setBonusManual(Number(e.target.value)); setTalentoSelecionado(""); }} className={`w-16 p-2 rounded-lg border border-current/20 text-center text-xl font-bold outline-none ${theme.text}`} disabled={modoExplosao || modoFalha || isMilagre} /></div>
-                </div>
-
-                {/* BOTÕES DE AÇÃO */}
+                {/* 4. BOTÕES DE AÇÃO */}
                 {!modoExplosao && !modoFalha && !isMilagre ? (
-                    <button onClick={() => rolarDado(false)} className={`w-full bg-gradient-to-r ${theme.button} font-black text-lg py-3 rounded-lg shadow-md transform active:scale-95 transition-all uppercase tracking-widest`}>ROLAR</button>
+                    <button 
+                        onClick={() => rolarDado(false)} 
+                        disabled={Object.keys(dicePool).length === 0}
+                        className={`w-full bg-gradient-to-r ${theme.button} font-black text-lg py-4 rounded-xl shadow-lg transform active:scale-95 transition-all uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                        ROLAR DADOS
+                    </button>
                 ) : modoExplosao ? (
-                    // AQUI ESTÁ A LÓGICA DO BOTÃO
                     <div className={`grid gap-3 animate-in slide-in-from-bottom-2 ${comboCritico === 2 ? 'grid-cols-1' : 'grid-cols-2'}`}>
                         <button 
                             onClick={() => rolarDado(true)} 
@@ -387,7 +502,6 @@ export default function Home() {
                             {comboCritico === 2 ? "🍀 TENTAR O MILAGRE (1/400) 🍀" : "💥 Abrir (+1)"}
                         </button>
                         
-                        {/* SE O COMBO FOR MENOR QUE 2, MOSTRA O BOTÃO DE GUARDAR. SE FOR 2, ELE SOME. */}
                         {comboCritico < 2 && (
                             <button onClick={guardarCritico} className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-lg border border-slate-600 transition-all uppercase text-xs">📥 Guardar</button>
                         )}
@@ -403,17 +517,27 @@ export default function Home() {
                     </button>
                 )}
 
-                {/* RESULTADO */}
+                {/* 5. RESULTADO VISUAL */}
                 {resultado && (
                   <div className={`mt-6 p-4 rounded-xl border-2 text-center animate-in zoom-in duration-200 ${isMilagre ? 'bg-yellow-900/30 border-yellow-500 shadow-[0_0_30px_rgba(234,179,8,0.4)]' : 'bg-black/10 border-current/10'}`}>
                     
-                    {!isMilagre && <p className="text-xs opacity-60 mb-1 font-mono uppercase tracking-wider">{resultado.formula}</p>}
+                    {!isMilagre && <p className="text-xs opacity-60 mb-2 font-mono uppercase tracking-wider">{resultado.formula}</p>}
                     
-                    <div className={`text-6xl font-black my-1 tracking-tighter ${isMilagre ? 'text-yellow-400 drop-shadow-[0_0_10px_rgba(234,179,8,0.8)]' : resultado.critico ? "text-yellow-500 drop-shadow-lg" : resultado.falhaCritica ? "text-red-500 drop-shadow-lg" : ""}`}>
+                    <div className={`text-6xl font-black my-2 tracking-tighter ${isMilagre ? 'text-yellow-400 drop-shadow-[0_0_10px_rgba(234,179,8,0.8)]' : resultado.critico ? "text-yellow-500 drop-shadow-lg" : resultado.falhaCritica ? "text-red-500 drop-shadow-lg" : ""}`}>
                         {modoExplosao ? somaAcumulada : resultado.totalFinal}
                     </div>
                     
-                    {!isMilagre && !modoExplosao && <div className="text-[10px] font-mono opacity-50 mt-2">[{resultado.rolagensIndividuais?.join(", ")}]</div>}
+                    {/* Detalhes por dado */}
+                    {!isMilagre && !modoExplosao && resultado.detalhes && (
+                        <div className="flex flex-wrap justify-center gap-2 mt-4">
+                            {resultado.detalhes.map((d: any, i: number) => (
+                                <div key={i} className="bg-black/20 px-3 py-1 rounded text-xs font-mono border border-white/5">
+                                    <span className="opacity-50 mr-2">{d.dado}:</span>
+                                    <span className="font-bold text-white">[{d.rolagens.join(", ")}]</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                     
                     {resultado.critico && !isMilagre && <div className="text-yellow-600 font-black text-sm mt-3 animate-bounce uppercase tracking-widest border border-yellow-500/50 inline-block px-3 py-0.5 rounded bg-yellow-500/10">{comboCritico === 2 ? "DUPLO 20!" : "🔥 Crítico 🔥"}</div>}
                     {resultado.falhaCritica && <div className="text-red-600 font-black text-sm mt-3 animate-pulse uppercase tracking-widest border border-red-500/50 inline-block px-3 py-0.5 rounded bg-red-500/10">💀 Falha Crítica 💀</div>}

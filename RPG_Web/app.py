@@ -63,56 +63,166 @@ def processar_upgrade_pontos(valor_atual, rank_atual, pontos_ganhos):
 
     return novo_total, novo_rank
 
-def rolar_dados_logica(quantidade, faces, bonus):
-    rolagens = []
-    soma_resultados = 0 
-    for _ in range(quantidade):
-        res = random.randint(1, faces)
-        rolagens.append(res)
-        if faces == 20:
-            regra = RegraDado.query.filter_by(numero_dado=res).first()
-            soma_resultados += regra.modificador if regra else res
-        else:
-            soma_resultados += res
-            
-    return {
-        "formula": f"{quantidade}d{faces} + {bonus}",
-        "rolagensIndividuais": rolagens,
-        "somaDados": soma_resultados,
-        "bonus": bonus,
-        "totalFinal": soma_resultados + bonus,
-        "critico": (20 in rolagens) if faces == 20 else False,
-        "falhaCritica": (1 in rolagens) if faces == 20 else False
-    }
-
 def calcular_rank_sistema(pontos_brutos):
-    """
-    Converte pontos brutos em Rank/Valor (Ex: 9 pts -> Rank F, Valor 1).
-    """
+    """Converte pontos brutos em Rank/Valor (Ex: 9 pts -> Rank F, Valor 1)."""
     if pontos_brutos <= 0: 
         return {"valor": 0, "rank": "-"}
     
     index = (pontos_brutos - 1) // 8
     valor_resetado = ((pontos_brutos - 1) % 8) + 1
     
-    if index >= len(LISTA_RANKS): # Correção para usar LISTA_RANKS global
-        # Ajuste: Lista ranks começa com '-', então o indice 1 é 'F'
-        # Ranks uteis: F, E, D, C, B, A, S, Z (8 ranks)
+    # Ranks uteis: F, E, D, C, B, A, S, Z
+    ranks_reais = ["F", "E", "D", "C", "B", "A", "S", "Z"]
+    
+    if index >= len(ranks_reais):
         rank_atual = "Z"
         valor_resetado = 8 
     else:
-        # Pula o "-" da lista se pontos > 0
-        ranks_reais = ["F", "E", "D", "C", "B", "A", "S", "Z"]
-        if index < len(ranks_reais):
-            rank_atual = ranks_reais[index]
-        else:
-            rank_atual = "Z"
-            valor_resetado = 8
+        rank_atual = ranks_reais[index]
 
     return {"valor": valor_resetado, "rank": rank_atual}
 
+# --- NOVA LÓGICA DE DADOS (POOL MISTO) ---
+def rolar_dados_logica_mista(pool, bonus_total):
+    """
+    Lógica Híbrida:
+    1. D20 Principal -> Usa Tabela do Banco de Dados.
+    2. Dados Extras -> Somam valor da face.
+    3. Regra de Gêmeos -> Se houver >1 dado do MESMO TIPO no pool extra:
+       O '1' não soma, ele se sacrifica para anular o maior valor daquele grupo.
+    """
+    detalhes = []
+    soma_total = 0
+    
+    # Variáveis de controle do D20 Principal
+    tem_d20_principal = False
+    critico_principal = False
+    falha_principal = False
+    soma_dados_brutos = 0 
+
+    # Cria cópia para não alterar o original
+    pool_trabalho = [p.copy() for p in pool]
+    
+    # ---------------------------------------------------------
+    # PASSO 1: IDENTIFICAR E ROLAR O D20 PRINCIPAL
+    # ---------------------------------------------------------
+    for grupo in pool_trabalho:
+        if int(grupo['faces']) == 20 and int(grupo['qtd']) > 0:
+            tem_d20_principal = True
+            
+            res = random.randint(1, 20)
+            
+            # Tabela do Sistema
+            regra = RegraDado.query.filter_by(numero_dado=res).first()
+            valor_com_regra = regra.modificador if regra else res
+            
+            soma_total += valor_com_regra
+            soma_dados_brutos += valor_com_regra
+            
+            if res == 20: critico_principal = True
+            if res == 1: falha_principal = True
+            
+            detalhes.append({
+                "dado": "D20 Principal",
+                "rolagens": [res],
+                "valor_somado": valor_com_regra,
+                "info": f"Valor Tabela: {valor_com_regra}"
+            })
+            
+            # Remove 1 da contagem (já foi usado como principal)
+            grupo['qtd'] = int(grupo['qtd']) - 1
+            break 
+            
+    # ---------------------------------------------------------
+    # PASSO 2: ROLAR DADOS ADICIONAIS
+    # ---------------------------------------------------------
+    for grupo in pool_trabalho:
+        qtd = int(grupo['qtd'])
+        faces = int(grupo['faces'])
+        
+        if qtd > 0:
+            rolagens = []
+            for _ in range(qtd):
+                rolagens.append(random.randint(1, faces))
+            
+            soma_grupo = 0
+            info_txt = ""
+
+            # --- REGRA DE DADOS GÊMEOS (> 1 dado do mesmo tipo) ---
+            if qtd > 1:
+                # Separa os '1's dos outros valores
+                uns = rolagens.count(1)
+                valores_validos = sorted([x for x in rolagens if x != 1])
+                
+                # Para cada '1', remove o maior valor disponível
+                cancelados = []
+                for _ in range(uns):
+                    if valores_validos:
+                        removido = valores_validos.pop() # Remove o último (maior)
+                        cancelados.append(removido)
+                
+                # O resultado é a soma do que sobrou (os 1s somem na anulação)
+                soma_grupo = sum(valores_validos)
+                
+                if uns > 0:
+                    info_txt = f"Gêmeos: {uns}x '1' anulou {cancelados}"
+            
+            # --- REGRA DE DADO ÚNICO (Soma tudo, inclusive o 1) ---
+            else:
+                soma_grupo = sum(rolagens)
+                # Aqui o 1 vale 1, pois não tem "irmão" para ativar a regra de anulação
+            
+            soma_total += soma_grupo
+            
+            detalhes.append({
+                "dado": f"D{faces} Extra",
+                "rolagens": rolagens, 
+                "valor_somado": soma_grupo,
+                "info": info_txt
+            })
+
+    # Monta a String da Fórmula
+    partes_formula = []
+    if tem_d20_principal: partes_formula.append("D20(P)")
+    for g in pool_trabalho:
+        if g['qtd'] > 0: partes_formula.append(f"{g['qtd']}d{g['faces']}")
+    if bonus_total != 0: partes_formula.append(f"{bonus_total}")
+    
+    formula_str = " + ".join(partes_formula)
+
+    return {
+        "formula": formula_str,
+        "detalhes": detalhes,
+        "somaDados": soma_dados_brutos,
+        "bonus": bonus_total,
+        "totalFinal": soma_total + bonus_total,
+        "critico": critico_principal,       
+        "falhaCritica": falha_principal,    
+        "temD20": tem_d20_principal
+    }
+
+    # Fórmula visual
+    partes_formula = []
+    if tem_d20_principal: partes_formula.append("D20(P)")
+    for g in pool_trabalho:
+        if g['qtd'] > 0: partes_formula.append(f"{g['qtd']}d{g['faces']}")
+    if bonus_total != 0: partes_formula.append(f"{bonus_total}")
+    
+    formula_str = " + ".join(partes_formula)
+
+    return {
+        "formula": formula_str,
+        "detalhes": detalhes,
+        "somaDados": soma_dados_brutos, # Passa o valor bruto do D20 para o front usar na explosão se precisar
+        "bonus": bonus_total,
+        "totalFinal": soma_total + bonus_total,
+        "critico": critico_principal,       
+        "falhaCritica": falha_principal,    
+        "temD20": tem_d20_principal
+    }
+
 # ==============================================================================
-# --- ROTAS GERAIS E JOGADOR ---
+# --- ROTAS DA API ---
 # ==============================================================================
 
 @app.route('/')
@@ -156,6 +266,7 @@ def listar_classes():
 @app.route('/criar-personagem', methods=['POST'])
 def criar_personagem():
     d = request.get_json()
+    
     if not d or 'user_id' not in d or 'nome' not in d:
         return jsonify({'erro': 'Dados incompletos!'}), 400
 
@@ -164,6 +275,7 @@ def criar_personagem():
 
     user_id = d['user_id']
     nome = d['nome']
+    terra_natal = d.get('terra_natal', 'Terra Desconhecida') # NOVO CAMPO
     historia = d.get('historia', '')
     
     classe_id_form = d.get('classe_id') 
@@ -172,7 +284,7 @@ def criar_personagem():
 
     classe_final_id = 1 
 
-    # Lógica Inteligente de Classe
+    # Lógica de Classe
     if tipo_origem == 'mandriosa' and classe_id_form:
         classe_final_id = classe_id_form
     elif tipo_origem == 'elemental' and elemento:
@@ -197,9 +309,16 @@ def criar_personagem():
             db.session.commit()
             classe_final_id = nova.id
 
-    novo = Personagem(nome=nome, historia=historia, user_id=user_id, classe_id=classe_final_id)
+    # Criação
+    novo = Personagem(
+        nome=nome, 
+        historia=historia, 
+        terra_natal=terra_natal,
+        user_id=user_id, 
+        classe_id=classe_final_id
+    )
     
-    # Grimório Inicial (Apenas Mandriosa)
+    # Grimório Inicial (Mandriosa)
     if tipo_origem == 'mandriosa':
         classe = Classe.query.get(novo.classe_id)
         if classe:
@@ -223,7 +342,6 @@ def ver_grimorio(id):
     
     lista = []
     for m in p.grimorio:
-        # Garante que campos novos sejam enviados mesmo se o model estiver desatualizado na memória
         dado = m.to_dict()
         dado['is_active'] = getattr(m, 'is_active', True) 
         dado['id_vinculo'] = m.id
@@ -236,13 +354,13 @@ def upar_magia(pid, nome):
     p = Personagem.query.get(pid)
     if not p: return jsonify({"erro": "Personagem não encontrado"}), 404
 
-    # Procura na ficha
+    # Verifica se já tem
     magia_aprendida = next((m for m in p.grimorio if m.info_magia.nome == nome), None)
 
     if magia_aprendida:
-        # Level Up
+        # Evoluir
         if not magia_aprendida.is_active:
-            return jsonify({"erro": "Esta habilidade está inativa e não pode evoluir."}), 400
+            return jsonify({"erro": "Esta habilidade está inativa."}), 400
             
         novo_lvl = magia_aprendida.nivel + 1
         total = len(p.grimorio)
@@ -255,10 +373,10 @@ def upar_magia(pid, nome):
         db.session.commit()
         return jsonify({"mensagem": f"Level Up! {nome} subiu para Nível {novo_lvl}."}), 200
     else:
-        # Aprender Nova (Busca no DB geral)
+        # Aprender Nova
         magia_db = Magia.query.filter_by(nome=nome).first()
         if not magia_db:
-            return jsonify({"erro": f"A habilidade '{nome}' não existe nos registros."}), 404
+            return jsonify({"erro": f"A habilidade '{nome}' não existe."}), 404
         
         nova_aprendida = MagiaAprendida(info_magia=magia_db, nivel=1, is_active=True)
         p.grimorio.append(nova_aprendida)
@@ -304,12 +422,19 @@ def tentar_evoluir():
         "custo_pago": custo
     }), 200
 
-# --- GAMEPLAY (DADOS, NOTAS, MAPA) ---
+# --- GAMEPLAY (DADOS MISTOS E UTILIDADES) ---
 
 @app.route('/rolar', methods=['POST'])
 def rolar():
     d = request.get_json()
-    return jsonify(rolar_dados_logica(d.get('qtd', 1), d.get('faces', 20), d.get('bonus', 0)))
+    
+    # Suporte para Pool Misto (Novo) ou Qtd/Faces (Antigo)
+    if 'pool' in d:
+        return jsonify(rolar_dados_logica_mista(d.get('pool'), d.get('bonus', 0)))
+    else:
+        # Retrocompatibilidade
+        pool_simples = [{"faces": d.get('faces', 20), "qtd": d.get('qtd', 1)}]
+        return jsonify(rolar_dados_logica_mista(pool_simples, d.get('bonus', 0)))
 
 @app.route('/salvar-notas', methods=['POST'])
 def salvar_notas():
@@ -422,7 +547,7 @@ def adicionar_habilidade_mestre():
     else:
         msg_retorno = f"Habilidade '{magia_db.nome}' existente foi vinculada!"
 
-    # Verifica duplicidade no grimório
+    # Verifica se já tem
     existente = MagiaAprendida.query.filter_by(personagem_id=personagem.id, magia_id=magia_db.id).first()
     if existente:
         if not existente.is_active:
@@ -431,18 +556,14 @@ def adicionar_habilidade_mestre():
             return jsonify({"mensagem": f"O personagem já tinha '{nome_input}', ela foi Reativada!"}), 200
         return jsonify({"erro": f"{personagem.nome} já possui esta habilidade ativa."}), 400
         
-    # --- CORREÇÃO AQUI ---
-    # Não passamos 'personagem=' aqui dentro.
+    # Vincula ao personagem usando a lista (CORRIGIDO)
     nova = MagiaAprendida(info_magia=magia_db, nivel=nivel_input, is_active=True)
-    
-    # Adicionamos diretamente na lista do personagem
     personagem.grimorio.append(nova)
-    
     db.session.commit()
     
     return jsonify({"mensagem": msg_retorno}), 201
 
-# --- GERADOR DE NPC (AGORA FUNCIONAL) ---
+# --- GERADOR DE NPC ---
 @app.route('/gerar-npc', methods=['POST'])
 def gerar_npc():
     data = request.json
@@ -519,7 +640,6 @@ def gerar_npc():
 
     ficha_final = { "atributos": {}, "talentos": [] }
 
-    # Agora a função 'calcular_rank_sistema' já existe porque foi definida no topo
     for sigla, pontos in ficha_bruta["atributos"].items():
         ficha_final["atributos"][sigla] = calcular_rank_sistema(pontos)
 

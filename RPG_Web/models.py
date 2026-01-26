@@ -40,6 +40,7 @@ class Personagem(db.Model):
     nome = db.Column(db.String(100), nullable=False)
     historia = db.Column(db.Text)
     is_dead = db.Column(db.Boolean, default=False)
+    terra_natal = db.Column(db.String(100), default="Desconhecida")
     
     # Banco de Dados de Críticos e Falhas
     banco_criticos = db.Column(db.Integer, default=0)
@@ -72,6 +73,7 @@ class Personagem(db.Model):
             "dono": self.dono.username if self.dono else "Desconhecido",
             "is_dead": self.is_dead,
             "historia": self.historia,
+            "terra_natal": self.terra_natal,
             "banco_criticos": self.banco_criticos,
             "banco_falhas": self.banco_falhas,
             "pontos_atributos_livres": self.pontos_atributos_livres,
